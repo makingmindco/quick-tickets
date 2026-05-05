@@ -32,7 +32,7 @@ setInterval(async () => {
     } catch (erro) {
         console.error('Erro na rotina de limpeza:', erro);
     }
-}, 10000); // <-- Mudei aqui para 10000 (10 segundos)
+}, 3600000); // <-- Mudei aqui para 3600000 (1 hora)
 // ----------------------------------------------
 app.listen(PORT, () => {
     console.log(`Servidor QuickTickets em execução na porta ${PORT}`);

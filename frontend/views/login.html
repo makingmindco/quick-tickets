@@ -23,7 +23,19 @@
         <form id="loginForm">
             <input type="email" id="email" placeholder="Seu e-mail" required>
             <input type="password" id="senha" placeholder="Sua senha" required>
-            <button type="submit">Entrar</button>
+        
+        <div style="text-align: left; margin-bottom: 20px;">
+            <!-- Usando flexbox no label para alinhar o quadrado e o texto perfeitamente ao centro -->
+            <label style="font-size: 14px; color: #666; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="lembrarEmail" style="width: auto; margin: 0; display: inline-block;"> 
+                Lembrar meu e-mail
+            </label>
+        </div>
+        <div style="text-align: right; margin-bottom: 20px;">
+            <a href="#" id="linkEsqueciSenha" style="font-size: 13px; color: #3b82f6; text-decoration: none; font-weight: bold;">Esqueci minha senha</a>
+        </div>
+        
+        <button type="submit">Entrar</button>
         </form>
         <p>Não tem uma conta? <a href="#" id="linkIrParaCadastro">Cadastre-se</a></p>
     </div>

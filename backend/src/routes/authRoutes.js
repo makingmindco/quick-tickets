@@ -30,7 +30,7 @@ router.post('/register', async (req, res) => {
         // 1. Gera um Token único e define a validade (ex: 24 horas a partir de agora)
         const token = crypto.randomBytes(20).toString('hex');
         const dataExpiracao = new Date();
-        dataExpiracao.setMinutes(dataExpiracao.getMinutes() + 1); // Limite de 24 horas
+        dataExpiracao.setHours(dataExpiracao.getHours() + 1); // Limite de 24 horas
 
         // 2. Salva no banco com o email_confirmado = false (0)
         const sql = 'INSERT INTO usuarios (nome, email, senha_hash, token_confirmacao, token_expiracao) VALUES (?, ?, ?, ?, ?)';
@@ -152,6 +152,85 @@ router.put('/update-password', async (req, res) => {
     } catch (erro) {
         console.error(erro);
         res.status(500).json({ erro: 'Erro ao atualizar a senha.' });
+    }
+});
+
+// POST /api/auth/forgot-password - Envia o e-mail de recuperação
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const [usuarios] = await db.execute('SELECT id, nome FROM usuarios WHERE email = ?', [email]);
+        
+        if (usuarios.length === 0) {
+            // Dica de Ouro de Segurança: Nunca diga "Este e-mail não existe". 
+            // Diga a mesma mensagem de sucesso, assim hackers não conseguem "garimpar" quais e-mails estão cadastrados na sua base.
+            return res.status(200).json({ mensagem: 'Se o e-mail estiver cadastrado, você receberá as instruções em instantes.' });
+        }
+
+        const user = usuarios[0];
+        
+        // Gera o token e define expiração para 1 hora
+        const token = crypto.randomBytes(20).toString('hex');
+        const dataExpiracao = new Date();
+        dataExpiracao.setHours(dataExpiracao.getHours() + 1); 
+
+        // Salva o token temporário no banco
+        await db.execute('UPDATE usuarios SET token_recuperacao = ?, expiracao_recuperacao = ? WHERE id = ?', [token, dataExpiracao, user.id]);
+
+        // Cria o link que o usuário vai clicar no e-mail
+        // Ele vai abrir uma telinha nova chamada reset-password.html passando o token na URL
+        const linkRecuperacao = `file:///C:/Users/Admin/Desktop/quick-tickets/frontend/views/reset-password.html?token=${token}`;
+
+        const emailConfig = {
+            from: 'SEU_EMAIL@gmail.com', // (Opcional) pode deixar vazio se preferir, pois o transporter já tem
+            to: email,
+            subject: 'QuickTickets - Recuperação de Senha',
+            html: `
+                <h2>Olá, ${user.nome}!</h2>
+                <p>Recebemos um pedido para redefinir a sua senha no QuickTickets.</p>
+                <p>Para criar uma nova senha, clique no botão abaixo:</p>
+                <a href="${linkRecuperacao}" style="background: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; font-weight: bold;">Redefinir Minha Senha</a>
+                <p><strong>Atenção:</strong> Este link é válido por apenas 1 hora. Se você não solicitou essa alteração, basta ignorar este e-mail e sua senha continuará a mesma.</p>
+            `
+        };
+
+        await transporter.sendMail(emailConfig);
+
+        res.status(200).json({ mensagem: 'Se o e-mail estiver cadastrado, você receberá as instruções em instantes.' });
+
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao processar a solicitação.' });
+    }
+});
+
+// POST /api/auth/reset-password - Salva a nova senha definitiva
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, novaSenha } = req.body;
+
+        // Procura alguém com esse token e verifica se AINDA não passou do prazo
+        const [usuarios] = await db.execute('SELECT id FROM usuarios WHERE token_recuperacao = ? AND expiracao_recuperacao > NOW()', [token]);
+
+        if (usuarios.length === 0) {
+            return res.status(400).json({ erro: 'Link inválido ou expirado. Por favor, solicite a recuperação novamente.' });
+        }
+
+        const userId = usuarios[0].id;
+        
+        // Criptografa a nova senha
+        const salt = await bcrypt.genSalt(10);
+        const senhaHash = await bcrypt.hash(novaSenha, salt);
+
+        // Atualiza a senha no banco e "limpa" os tokens para ninguém usar o link de novo
+        await db.execute('UPDATE usuarios SET senha_hash = ?, token_recuperacao = NULL, expiracao_recuperacao = NULL WHERE id = ?', [senhaHash, userId]);
+
+        res.status(200).json({ mensagem: 'Senha alterada com sucesso! Você já pode fazer login com a nova senha.' });
+
+    } catch (erro) {
+        console.error(erro);
+        res.status(500).json({ erro: 'Erro ao redefinir a senha.' });
     }
 });
 

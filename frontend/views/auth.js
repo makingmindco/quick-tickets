@@ -1,4 +1,12 @@
 // views/auth.js
+// --- LEMBRAR E-MAIL ---
+window.onload = () => {
+    const emailSalvo = localStorage.getItem('lembrar_email_qt');
+    if (emailSalvo) {
+        document.getElementById('email').value = emailSalvo;
+        document.getElementById('lembrarEmail').checked = true;
+    }
+};
 
 // MAPEAMENTO DOS ELEMENTOS DAS CAIXAS
 const boxLogin = document.getElementById('boxLogin');
@@ -37,6 +45,13 @@ document.getElementById('loginForm').addEventListener('submit', async (evento) =
 
         // --- COMEÇO DA SUBSTITUIÇÃO ---
         if (resposta.ok) {
+            // Lógica do Lembrar E-mail
+            if (document.getElementById('lembrarEmail').checked) {
+                localStorage.setItem('lembrar_email_qt', email);
+            } else {
+                localStorage.removeItem('lembrar_email_qt');
+            }
+
             localStorage.setItem('usuarioLogado', JSON.stringify(dados.usuario));
             
             // VERIFICAÇÃO DE TROCA OBRIGATÓRIA DA SENHA
@@ -96,3 +111,34 @@ document.getElementById('cadastroForm').addEventListener('submit', async (evento
         alert('Erro de conexão com o servidor.');
     }
 });
+// --- ESQUECI MINHA SENHA ---
+const linkEsqueciSenha = document.getElementById('linkEsqueciSenha');
+
+if (linkEsqueciSenha) {
+    linkEsqueciSenha.addEventListener('click', async (e) => {
+        e.preventDefault(); // Evita que a página recarregue ao clicar no link
+        
+        // Pede o e-mail do usuário
+        const email = prompt('Digite o e-mail cadastrado na sua conta para recuperar a senha:');
+        
+        // Se o usuário clicar em "Cancelar" ou deixar vazio, encerra a função
+        if (!email) return; 
+
+        try {
+            const resposta = await fetch('http://localhost:3000/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            const dados = await resposta.json();
+            
+            // Exibe o aviso que as instruções foram enviadas
+            alert(dados.mensagem); 
+            
+        } catch (erro) {
+            console.error('Erro:', erro);
+            alert('Erro ao processar a solicitação. Verifique se o servidor está rodando.');
+        }
+    });
+}
