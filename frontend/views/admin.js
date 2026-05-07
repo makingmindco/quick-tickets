@@ -330,3 +330,82 @@ async function gerarRelatorio(periodo) {
 
 // Inicializa a tela carregando os tickets
 carregarFilaTickets();
+// --- QUADRO DE AVISOS (ADMIN) ---
+const listaAvisosAdmin = document.getElementById('listaAvisosAdmin');
+
+async function carregarAvisos() {
+    try {
+        const resposta = await fetch('http://localhost:3000/api/avisos');
+        const avisos = await resposta.json();
+        
+        listaAvisosAdmin.innerHTML = '';
+        if (avisos.length === 0) {
+            listaAvisosAdmin.innerHTML = '<p style="color: #64748b; font-size: 14px;">Nenhum aviso publicado.</p>';
+            return;
+        }
+
+        avisos.forEach(aviso => {
+            const dataFomatada = new Date(aviso.data_criacao).toLocaleDateString('pt-BR');
+            listaAvisosAdmin.innerHTML += `
+                <div style="background: #f8fafc; border-left: 4px solid #f59e0b; padding: 10px 15px; margin-bottom: 10px; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <h4 style="margin: 0; color: #1e293b; font-size: 15px;">${aviso.titulo}</h4>
+                        <button onclick="deletarAviso(${aviso.id})" style="background: #ef4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">Excluir</button>
+                    </div>
+                    <p style="margin: 5px 0 0 0; color: #475569; font-size: 14px;">${aviso.mensagem}</p>
+                    <small style="color: #94a3b8; font-size: 11px;">Postado por ${aviso.autor || 'Admin'} em ${dataFomatada}</small>
+                </div>
+            `;
+        });
+    } catch (erro) {
+        console.error('Erro ao carregar avisos:', erro);
+    }
+}
+
+async function publicarAviso() {
+    const titulo = document.getElementById('tituloAviso').value;
+    const mensagem = document.getElementById('mensagemAviso').value;
+
+    if (!titulo || !mensagem) return alert('Preencha o título e a mensagem!');
+
+    try {
+        await fetch('http://localhost:3000/api/avisos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titulo, mensagem, admin_id: adminLogado.id })
+        });
+        
+        document.getElementById('tituloAviso').value = '';
+        document.getElementById('mensagemAviso').value = '';
+        carregarAvisos(); // Recarrega a lista
+    } catch (erro) {
+        console.error('Erro ao publicar aviso:', erro);
+    }
+}
+
+async function deletarAviso(id) {
+    if (!confirm('Tem certeza que deseja apagar este aviso?')) return;
+    try {
+        await fetch(`http://localhost:3000/api/avisos/${id}`, { method: 'DELETE' });
+        carregarAvisos();
+    } catch (erro) {
+        console.error('Erro ao deletar aviso:', erro);
+    }
+}
+
+// Chame a função carregarAvisos() lá no topo do admin.js, junto com as outras funções que rodam ao abrir a página.
+carregarAvisos();
+// --- FUNÇÃO PARA MINIMIZAR/EXPANDIR O MURAL (COM ANIMAÇÃO) ---
+function toggleMural(idConteudo, botao) {
+    const conteudo = document.getElementById(idConteudo);
+    
+    // Se estiver com 0px (recolhido), ele abre até 600px (espaço mais que suficiente)
+    if (conteudo.style.maxHeight === '0px') {
+        conteudo.style.maxHeight = '600px'; 
+        botao.innerText = 'Minimizar';
+    } else {
+        // Se estiver aberto, ele encolhe para 0px
+        conteudo.style.maxHeight = '0px'; 
+        botao.innerText = 'Expandir';
+    }
+}

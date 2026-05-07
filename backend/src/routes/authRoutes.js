@@ -191,7 +191,11 @@ router.post('/forgot-password', async (req, res) => {
                 <p>Recebemos um pedido para redefinir a sua senha no QuickTickets.</p>
                 <p>Para criar uma nova senha, clique no botão abaixo:</p>
                 <a href="${linkRecuperacao}" style="background: #f59e0b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; font-weight: bold;">Redefinir Minha Senha</a>
-                <p><strong>Atenção:</strong> Este link é válido por apenas 1 hora. Se você não solicitou essa alteração, basta ignorar este e-mail e sua senha continuará a mesma.</p>
+                
+                <p><strong>Se o botão acima não funcionar</strong>, copie o link abaixo e cole na barra de endereços do seu navegador:</p>
+                <p style="background: #f1f5f9; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 13px;">${linkRecuperacao}</p>
+                
+                <p><strong>Atenção:</strong> Este link é válido por apenas 1 hora. Se você não solicitou essa alteração, basta ignorar este e-mail.</p>
             `
         };
 

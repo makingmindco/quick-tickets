@@ -16,6 +16,7 @@ const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/avisos', require('./routes/avisosRoutes'));
 
 const PORT = process.env.PORT || 3000;
 // --- ROTINA DE LIMPEZA (RODA A CADA 1 HORA) ---

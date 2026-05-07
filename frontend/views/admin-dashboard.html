@@ -65,6 +65,25 @@
                 <p style="color: #64748b;">Buscando chamados...</p>
             </div>
         </div>
+<div style="width: 100%; box-sizing: border-box; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+        <h3 style="color: #0f172a; margin: 0;">Quadro de Avisos (Top 5)</h3>
+        <button onclick="toggleMural('conteudoMuralAdmin', this)" style="background: #e2e8f0; color: #475569; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Minimizar</button>
+    </div>
+    
+    <div id="conteudoMuralAdmin" style="max-height: 600px; overflow: hidden; transition: max-height 0.4s ease-in-out;">
+        <div style="padding-top: 15px;"> <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0;">
+                <input type="text" id="tituloAviso" placeholder="Título do Aviso" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <textarea id="mensagemAviso" placeholder="Escreva o recado aqui..." rows="3" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;"></textarea>
+                <button onclick="publicarAviso()" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Publicar Aviso</button>
+            </div>
+            <div id="listaAvisosAdmin" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+    <div id="listaAvisosAdmin" style="max-height: 300px; overflow-y: auto;"></div>
+</div>
 
         <div id="sessaoDashboard" class="sessao">
             <h2 class="titulo-sessao">Visão Geral do Sistema</h2>

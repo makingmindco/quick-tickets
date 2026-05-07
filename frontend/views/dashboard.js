@@ -260,3 +260,48 @@ async function carregarComunidade() {
         listaTickets.innerHTML = '<p style="color: #ef4444;">Erro ao carregar o mural da comunidade.</p>';
     }
 }
+// --- QUADRO DE AVISOS (USUÁRIO) ---
+const listaAvisosUser = document.getElementById('listaAvisosUser');
+
+async function carregarAvisos() {
+    try {
+        const resposta = await fetch('http://localhost:3000/api/avisos');
+        const avisos = await resposta.json();
+        
+        listaAvisosUser.innerHTML = '';
+        if (avisos.length === 0) {
+            listaAvisosUser.innerHTML = '<p style="color: #64748b; font-size: 14px;">Nenhum aviso no momento.</p>';
+            return;
+        }
+
+        avisos.forEach(aviso => {
+            const dataFomatada = new Date(aviso.data_criacao).toLocaleDateString('pt-BR');
+            listaAvisosUser.innerHTML += `
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 15px; margin-bottom: 10px; border-radius: 4px;">
+                    <h4 style="margin: 0 0 5px 0; color: #92400e; font-size: 15px;">${aviso.titulo}</h4>
+                    <p style="margin: 0; color: #92400e; font-size: 14px;">${aviso.mensagem}</p>
+                    <small style="color: #b45309; font-size: 11px; display: block; margin-top: 8px;">Postado em ${dataFomatada}</small>
+                </div>
+            `;
+        });
+    } catch (erro) {
+        console.error('Erro ao carregar avisos:', erro);
+    }
+}
+
+// Lembre-se de chamar carregarAvisos() junto com carregarMeusChamados() ao abrir a tela.
+carregarAvisos();
+// --- FUNÇÃO PARA MINIMIZAR/EXPANDIR O MURAL (COM ANIMAÇÃO) ---
+function toggleMural(idConteudo, botao) {
+    const conteudo = document.getElementById(idConteudo);
+    
+    // Se estiver com 0px (recolhido), ele abre até 600px (espaço mais que suficiente)
+    if (conteudo.style.maxHeight === '0px') {
+        conteudo.style.maxHeight = '600px'; 
+        botao.innerText = 'Minimizar';
+    } else {
+        // Se estiver aberto, ele encolhe para 0px
+        conteudo.style.maxHeight = '0px'; 
+        botao.innerText = 'Expandir';
+    }
+}
