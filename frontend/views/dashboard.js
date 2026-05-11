@@ -71,7 +71,7 @@ formTicket.addEventListener('submit', async (evento) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                usuario_id: usuarioLogado.id, // Pega o ID do usuário da sessão
+                usuario_id: usuarioLogado.id,
                 categoria_id: categoria_id,
                 descricao: descricao
             })
@@ -127,9 +127,12 @@ async function carregarMeusTickets() {
         // Para cada ticket devolvido pelo banco, cria um card HTML
         tickets.forEach(ticket => {
             // Define a cor da "etiqueta" (badge) de acordo com o status
-            let corStatus = '#f59e0b'; // Amarelo para 'pendente'
-            if (ticket.status === 'em_andamento') corStatus = '#3b82f6'; // Azul
-            if (ticket.status === 'finalizado') corStatus = '#10b981'; // Verde
+            const statusColors = {
+                'pendente': '#f59e0b',
+                'em_andamento': '#3b82f6',
+                'finalizado': '#10b981'
+            };
+            let corStatus = statusColors[ticket.status] || '#f59e0b';
 
             // Formata a data para o padrão brasileiro
             const dataFormatada = new Date(ticket.criado_em).toLocaleDateString('pt-BR', {
@@ -174,10 +177,13 @@ async function encerrarTicket(idTicket) {
     if (!confirm('Tem certeza que deseja marcar este chamado como finalizado?')) return;
 
     try {
+        // Segurança: Garante que só o dono pode fechar
         const resposta = await fetch(`http://localhost:3000/api/tickets/${idTicket}/close`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario_id: usuarioLogado.id }) // Segurança: Garante que só o dono pode fechar
+            body: JSON.stringify({
+                usuario_id: usuarioLogado.id
+            })
         });
 
         if (resposta.ok) {
