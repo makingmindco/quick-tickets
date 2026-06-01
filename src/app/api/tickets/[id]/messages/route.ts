@@ -113,16 +113,39 @@ export async function POST(
       arquivo_url
     });
 
-    if (user.is_admin && ticket.cliente_email && ticket.cliente_nome) {
-      const textoNotificacao = mensagem || '[Arquivo Anexo]';
-      await emailService.enviarNotificacaoPergunta(
-        ticket.cliente_email,
-        ticket.cliente_nome,
-        ticket.id,
-        ticket.titulo || ticket.categoria || 'Chamado',
-        user.nome,
-        textoNotificacao
-      );
+    const notificationRepository = (await import('@/lib/repositories/notificationRepository')).default;
+    if (user.is_admin) {
+      // Notificar estudante
+      await notificationRepository.create({
+        usuarioId: ticket.usuario_id,
+        titulo: 'Nova resposta no chamado 💬',
+        mensagem: `A equipe de suporte respondeu no chamado #${ticket.id} (${ticket.titulo || ticket.categoria}).`,
+        tipo: 'mensagem',
+        link: '/dashboard'
+      });
+
+      if (ticket.cliente_email && ticket.cliente_nome) {
+        const textoNotificacao = mensagem || '[Arquivo Anexo]';
+        await emailService.enviarNotificacaoPergunta(
+          ticket.cliente_email,
+          ticket.cliente_nome,
+          ticket.id,
+          ticket.titulo || ticket.categoria || 'Chamado',
+          user.nome,
+          textoNotificacao
+        );
+      }
+    } else {
+      // Notificar administrador responsável se houver um
+      if (ticket.admin_id) {
+        await notificationRepository.create({
+          usuarioId: ticket.admin_id,
+          titulo: 'Nova resposta do aluno 💬',
+          mensagem: `O aluno ${user.nome} enviou uma mensagem no chamado #${ticket.id} (${ticket.titulo || ticket.categoria}).`,
+          tipo: 'mensagem',
+          link: '/admin'
+        });
+      }
     }
 
     return NextResponse.json({ mensagem: 'Mensagem enviada com sucesso.' }, { status: 201 });

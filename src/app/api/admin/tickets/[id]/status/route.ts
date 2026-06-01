@@ -35,6 +35,28 @@ export async function PUT(
       return NextResponse.json({ erro: 'Não foi possível atualizar o ticket.' }, { status: 400 });
     }
 
+    // Enviar e-mails e criar notificações internas
+    if (ticket.usuario_id) {
+      const notificationRepository = (await import('@/lib/repositories/notificationRepository')).default;
+      if (status === 'em_andamento') {
+        await notificationRepository.create({
+          usuarioId: ticket.usuario_id,
+          titulo: 'Chamado em atendimento 💬',
+          mensagem: `Seu chamado #${ticket.id} (${ticket.titulo || ticket.categoria}) foi assumido e está em atendimento.`,
+          tipo: 'atendimento',
+          link: `/dashboard`
+        });
+      } else if (status === 'finalizado') {
+        await notificationRepository.create({
+          usuarioId: ticket.usuario_id,
+          titulo: 'Chamado resolvido! ✅',
+          mensagem: `Seu chamado #${ticket.id} (${ticket.titulo || ticket.categoria}) foi finalizado por ${user.nome}.`,
+          tipo: 'finalizado',
+          link: `/dashboard`
+        });
+      }
+    }
+
     if (ticket.cliente_email && ticket.cliente_nome) {
       if (status === 'em_andamento') {
         await emailService.enviarNotificacaoAtendimento(

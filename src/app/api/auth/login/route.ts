@@ -42,7 +42,9 @@ export async function POST(req: NextRequest) {
         email: usuario.email,
         is_admin: usuario.is_admin,
         trocar_senha_obrigatorio: usuario.trocar_senha_obrigatorio,
-        cargo: usuario.cargo
+        cargo: usuario.cargo,
+        foto_url: usuario.foto_url,
+        tema_escuro: usuario.tema_escuro
       }
     }, { status: 200 });
   } catch (erro) {

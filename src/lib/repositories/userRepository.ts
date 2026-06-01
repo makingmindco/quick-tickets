@@ -15,6 +15,8 @@ export interface UserDB extends RowDataPacket {
   token_recuperacao: string | null;
   expiracao_recuperacao: Date | null;
   criado_em: Date;
+  foto_url: string | null;
+  tema_escuro: number;
 }
 
 class UserRepository {
@@ -105,9 +107,40 @@ class UserRepository {
     return result.affectedRows > 0;
   }
 
-  async updateUser(id: number, { nome, email, cargo, is_admin }: { nome: string; email: string; cargo: string; is_admin: boolean }): Promise<boolean> {
-    const sql = 'UPDATE usuarios SET nome = ?, email = ?, cargo = ?, is_admin = ? WHERE id = ?';
-    const [result] = await db.execute<ResultSetHeader>(sql, [nome, email, cargo, is_admin ? 1 : 0, id]);
+  async updateUser(
+    id: number,
+    {
+      nome,
+      email,
+      cargo,
+      is_admin,
+      foto_url,
+      tema_escuro
+    }: {
+      nome: string;
+      email: string;
+      cargo: string;
+      is_admin: boolean;
+      foto_url?: string | null;
+      tema_escuro?: boolean | number;
+    }
+  ): Promise<boolean> {
+    const user = await this.findById(id);
+    if (!user) return false;
+
+    const finalFotoUrl = foto_url !== undefined ? foto_url : user.foto_url;
+    const finalTemaEscuro = tema_escuro !== undefined ? (tema_escuro ? 1 : 0) : user.tema_escuro;
+
+    const sql = 'UPDATE usuarios SET nome = ?, email = ?, cargo = ?, is_admin = ?, foto_url = ?, tema_escuro = ? WHERE id = ?';
+    const [result] = await db.execute<ResultSetHeader>(sql, [
+      nome,
+      email,
+      cargo,
+      is_admin ? 1 : 0,
+      finalFotoUrl,
+      finalTemaEscuro,
+      id
+    ]);
     return result.affectedRows > 0;
   }
 }

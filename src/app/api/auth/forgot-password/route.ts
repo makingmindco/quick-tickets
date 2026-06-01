@@ -19,8 +19,20 @@ export async function POST(req: NextRequest) {
 
     await userRepository.setRecoveryToken(usuario.id, token, dataExpiracao);
 
-    // Dynamically resolve origin from the incoming request (handles localhost:3000 or custom ports)
-    const resetUrl = `${new URL(req.url).origin}/reset-password?token=${token}`;
+    // Dynamically resolve origin from the incoming request safely
+    let origin = 'http://localhost:3000';
+    if (req.nextUrl) {
+      origin = req.nextUrl.origin;
+    } else {
+      try {
+        origin = new URL(req.url).origin;
+      } catch {
+        const host = req.headers.get('host') || 'localhost:3000';
+        const proto = req.headers.get('x-forwarded-proto') || 'http';
+        origin = `${proto}://${host}`;
+      }
+    }
+    const resetUrl = `${origin}/reset-password?token=${token}`;
 
     const emailConfig = {
       from: process.env.EMAIL_USER,
@@ -39,7 +51,12 @@ export async function POST(req: NextRequest) {
       `
     };
 
-    await transporter.sendMail(emailConfig);
+    try {
+      await transporter.sendMail(emailConfig);
+    } catch (emailErr) {
+      console.error('[Mailer] Erro ao enviar e-mail de recuperação de senha:', emailErr);
+      console.log(`[Recuperação] Link para redefinir a senha do usuário (${email}): ${resetUrl}`);
+    }
 
     return NextResponse.json({ mensagem: 'Se o e-mail estiver cadastrado, você receberá as instruções em instantes.' }, { status: 200 });
   } catch (erro) {

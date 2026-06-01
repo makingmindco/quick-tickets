@@ -5,6 +5,8 @@ export interface User {
   is_admin: number | boolean;
   cargo?: string;
   trocar_senha_obrigatorio?: number | boolean;
+  foto_url?: string | null;
+  tema_escuro?: number | boolean;
 }
 
 export interface Ticket {
@@ -15,10 +17,12 @@ export interface Ticket {
   descricao: string;
   status: "pendente" | "em_andamento" | "finalizado";
   prazo: string | null;
+  admin_id?: number | null;
   criado_em: string;
   categoria: string;
   cliente?: string;
   cliente_nome?: string;
+  cliente_email?: string;
   admin_nome?: string;
 }
 

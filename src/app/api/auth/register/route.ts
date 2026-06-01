@@ -58,7 +58,12 @@ export async function POST(req: NextRequest) {
       `
     };
 
-    await transporter.sendMail(emailConfig);
+    try {
+      await transporter.sendMail(emailConfig);
+    } catch (emailErr) {
+      console.error('[Mailer] Erro ao enviar e-mail de confirmação de cadastro:', emailErr);
+      console.log(`[Confirmação] Código para o e-mail (${email}): ${token}`);
+    }
 
     return NextResponse.json({ mensagem: 'Usuário cadastrado! Digite o código de 6 dígitos enviado ao seu e-mail para ativar a conta.' }, { status: 201 });
   } catch (erro) {

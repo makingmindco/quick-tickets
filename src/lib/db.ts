@@ -26,6 +26,24 @@ async function initDatabase() {
   try {
     console.log('[Banco] Iniciando verificação de tabelas...');
     
+    // Verificar e criar colunas na tabela usuarios caso não existam
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM usuarios');
+      const columnNames = (cols as any[]).map((c: any) => c.Field);
+      
+      if (!columnNames.includes('foto_url')) {
+        await pool.execute('ALTER TABLE usuarios ADD COLUMN foto_url VARCHAR(255) DEFAULT NULL');
+        console.log('[Banco] Coluna "foto_url" adicionada à tabela "usuarios".');
+      }
+      
+      if (!columnNames.includes('tema_escuro')) {
+        await pool.execute('ALTER TABLE usuarios ADD COLUMN tema_escuro TINYINT(1) DEFAULT 0');
+        console.log('[Banco] Coluna "tema_escuro" adicionada à tabela "usuarios".');
+      }
+    } catch (colErr) {
+      console.warn('[Banco] Aviso ao verificar/adicionar colunas em "usuarios" (a tabela pode não existir ainda):', colErr);
+    }
+    
     // 1. Criar tabela de avisos caso não exista
     const createAvisosTable = `
       CREATE TABLE IF NOT EXISTS avisos (
@@ -56,6 +74,23 @@ async function initDatabase() {
     `;
     await pool.execute(createMensagensTable);
     console.log('[Banco] Tabela "mensagens" verificada/criada.');
+
+    // 3. Criar tabela de notificações caso não exista
+    const createNotificacoesTable = `
+      CREATE TABLE IF NOT EXISTS notificacoes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL,
+        titulo VARCHAR(255) NOT NULL,
+        mensagem TEXT NOT NULL,
+        lida TINYINT(1) DEFAULT 0,
+        tipo VARCHAR(50) DEFAULT 'info',
+        link VARCHAR(255) NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+    await pool.execute(createNotificacoesTable);
+    console.log('[Banco] Tabela "notificacoes" verificada/criada.');
 
     console.log('[Banco] Estrutura do banco de dados verificada com sucesso!');
   } catch (erro) {

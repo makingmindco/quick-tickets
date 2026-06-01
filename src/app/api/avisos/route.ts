@@ -40,6 +40,14 @@ export async function POST(req: NextRequest) {
       admin_id: user.id
     });
 
+    const notificationRepository = (await import('@/lib/repositories/notificationRepository')).default;
+    await notificationRepository.notifyAllStudents({
+      titulo: 'Novo Aviso da Coordenação 📢',
+      mensagem: `A coordenação publicou um novo aviso: "${titulo}"`,
+      tipo: 'aviso',
+      link: '/dashboard'
+    });
+
     return NextResponse.json({ mensagem: 'Aviso publicado com sucesso!' }, { status: 201 });
   } catch (erro) {
     console.error(erro);
