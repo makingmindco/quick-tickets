@@ -41,121 +41,164 @@ async function seed() {
   const connection = await mysql.createConnection(dbConfig);
 
   try {
-    // 1. Limpar tabelas existentes
-    console.log('[Seed] Limpando chamados e mensagens existentes...');
+    // 1. Limpar tabelas existentes para garantir consistência
+    console.log('[Seed] Limpando dados anteriores para evitar duplicações...');
     await connection.execute('DELETE FROM mensagens');
+    await connection.execute('DELETE FROM notificacoes');
     await connection.execute('DELETE FROM tickets');
-    console.log('[Seed] Tabelas de chamados e mensagens limpas com sucesso!');
+    await connection.execute('DELETE FROM avisos');
+    await connection.execute('DELETE FROM usuarios');
+    console.log('[Seed] Tabelas limpas com sucesso!');
 
-    // 2. Garantir categorias
+    // 2. Garantir categorias padrão
+    console.log('[Seed] Criando categorias...');
     await connection.execute('INSERT IGNORE INTO categorias (id, nome) VALUES (1, "Acadêmico"), (2, "Infraestrutura"), (3, "Financeiro / Secretaria")');
 
-    // 3. Obter ou criar usuário aluno (cliente)
-    let alunoId = 16;
-    const [alunos] = await connection.execute<any[]>('SELECT id FROM usuarios WHERE is_admin = 0 LIMIT 1');
-    if (alunos.length > 0) {
-      alunoId = alunos[0].id;
-      console.log(`[Seed] Usando estudante existente (ID: ${alunoId})`);
-    } else {
-      // Criar estudante de teste se não houver
-      const [res] = await connection.execute<any>(
-        'INSERT INTO usuarios (nome, email, senha_hash, is_admin, email_confirmado) VALUES (?, ?, ?, 0, 1)',
-        ['Caio Henrique', 'caioheenrique36@gmail.com', '$2b$10$1RdWlTVvpAptEIiEhHxwh.VLRT/oyazFoN3m60NDIRkoYp4IvYAVq']
-      );
-      alunoId = res.insertId;
-      console.log(`[Seed] Estudante de teste criado (ID: ${alunoId})`);
-    }
+    // Senha hash para a senha em texto plano "fatec123"
+    const senhaHash = '$2b$10$/jYWT3lG0AxHK5fX0YBFYeyIBsO2c0JJ7cRlrfRofGzleNXVqAJ8W';
 
-    // 4. Obter ou criar usuário administrador (atendente)
-    let adminId = 1;
-    const [admins] = await connection.execute<any[]>('SELECT id FROM usuarios WHERE is_admin = 1 LIMIT 1');
-    if (admins.length > 0) {
-      adminId = admins[0].id;
-      console.log(`[Seed] Usando administrador existente (ID: ${adminId})`);
-    } else {
-      // Criar admin de teste se não houver
-      const [res] = await connection.execute<any>(
-        'INSERT INTO usuarios (nome, email, senha_hash, is_admin, email_confirmado) VALUES (?, ?, ?, 1, 1)',
-        ['Suporte QuickTickets', 'suporte@quicktickets.com', '$2b$10$1RdWlTVvpAptEIiEhHxwh.VLRT/oyazFoN3m60NDIRkoYp4IvYAVq']
-      );
-      adminId = res.insertId;
-      console.log(`[Seed] Administrador de teste criado (ID: ${adminId})`);
-    }
+    // 3. Inserir Administradores
+    console.log('[Seed] Cadastrando administradores/técnicos...');
+    const [adm1] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, cargo, email_confirmado) VALUES (?, ?, ?, 1, ?, 1)',
+      ['Amanda Costa', 'amanda.suporte@quicktickets.com', senhaHash, 'Supervisora de TI']
+    );
+    const admin1Id = adm1.insertId;
 
-    // 5. Inserir Ticket 1: Pendente
-    console.log('[Seed] Criando Ticket 1 (Pendente)...');
-    const [t1Res] = await connection.execute<any>(
-      'INSERT INTO tickets (usuario_id, categoria_id, titulo, descricao, status, criado_em) VALUES (?, 1, ?, ?, ?, NOW() - INTERVAL 2 HOUR)',
+    const [adm2] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, cargo, email_confirmado) VALUES (?, ?, ?, 1, ?, 1)',
+      ['Bruno Souza', 'bruno.infra@quicktickets.com', senhaHash, 'Técnico de Infraestrutura']
+    );
+    const admin2Id = adm2.insertId;
+
+    const [adm3] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, cargo, email_confirmado) VALUES (?, ?, ?, 1, ?, 1)',
+      ['Suporte Geral', 'suporte@quicktickets.com', senhaHash, 'Administrador Geral']
+    );
+    const admin3Id = adm3.insertId;
+
+    console.log(`[Seed] Admins criados: Amanda (ID ${admin1Id}), Bruno (ID ${admin2Id}), Geral (ID ${admin3Id})`);
+
+    // 4. Inserir Estudantes
+    console.log('[Seed] Cadastrando estudantes...');
+    const [est1] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, email_confirmado) VALUES (?, ?, ?, 0, 1)',
+      ['Caio Henrique', 'caio.aluno@fatec.sp.gov.br', senhaHash]
+    );
+    const estudante1Id = est1.insertId;
+
+    const [est2] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, email_confirmado) VALUES (?, ?, ?, 0, 1)',
+      ['Mariana Santos', 'mariana.aluno@fatec.sp.gov.br', senhaHash]
+    );
+    const estudante2Id = est2.insertId;
+
+    const [est3] = await connection.execute<any>(
+      'INSERT INTO usuarios (nome, email, senha_hash, is_admin, email_confirmado) VALUES (?, ?, ?, 0, 1)',
+      ['Rodrigo Lima', 'rodrigo.aluno@fatec.sp.gov.br', senhaHash]
+    );
+    const estudante3Id = est3.insertId;
+
+    console.log(`[Seed] Estudantes criados: Caio (ID ${estudante1Id}), Mariana (ID ${estudante2Id}), Rodrigo (ID ${estudante3Id})`);
+
+    // 5. Inserir Mural de Avisos Geral
+    console.log('[Seed] Criando avisos gerais...');
+    await connection.execute(
+      'INSERT INTO avisos (titulo, mensagem, admin_id) VALUES (?, ?, ?)',
       [
-        alunoId,
+        'Manutenção Programada no Servidor da Secretaria',
+        'Informamos que no dia 05/06/2026 o sistema de emissão de boletos estará indisponível das 22h às 02h para atualização tecnológica periódica da infraestrutura.',
+        admin1Id
+      ]
+    );
+
+    // 6. Inserir Tickets com conversas e status reais
+
+    // Chamado 1: Caio Henrique - Categoria Acadêmico - PENDENTE
+    console.log('[Seed] Criando chamado 1...');
+    const [t1] = await connection.execute<any>(
+      'INSERT INTO tickets (usuario_id, categoria_id, titulo, descricao, status, criado_em) VALUES (?, 1, ?, ?, ?, NOW() - INTERVAL 1 HOUR)',
+      [
+        estudante1Id,
         'Dúvida sobre matrícula em Cálculo II',
-        'Gostaria de saber se ainda é possível solicitar ajuste de horário ou inclusão na turma de Cálculo II do período da manhã. Perdi o prazo padrão da secretaria.',
+        'Gostaria de saber se ainda posso solicitar inclusão na turma de Cálculo II do período da manhã. Perdi o prazo padrão da secretaria por problemas no portal acadêmico.',
         'pendente'
       ]
     );
-    const t1Id = t1Res.insertId;
-    // Mensagem inicial
+    const t1Id = t1.insertId;
     await connection.execute(
-      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 2 HOUR)',
-      [t1Id, alunoId, 'Gostaria de saber se ainda é possível solicitar ajuste de horário ou inclusão na turma de Cálculo II do período da manhã. Perdi o prazo padrão da secretaria.']
+      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 1 HOUR)',
+      [t1Id, estudante1Id, 'Gostaria de saber se ainda posso solicitar inclusão na turma de Cálculo II do período da manhã. Perdi o prazo padrão da secretaria por problemas no portal acadêmico.']
     );
 
-    // 6. Inserir Ticket 2: Em Atendimento (Com conversa ativa)
-    console.log('[Seed] Criando Ticket 2 (Em Atendimento)...');
-    const [t2Res] = await connection.execute<any>(
-      'INSERT INTO tickets (usuario_id, categoria_id, titulo, descricao, status, admin_id, criado_em) VALUES (?, 2, ?, ?, ?, ?, NOW() - INTERVAL 5 HOUR)',
+    // Chamado 2: Caio Henrique - Categoria Infraestrutura - EM ANDAMENTO (Bruno Souza)
+    console.log('[Seed] Criando chamado 2...');
+    const [t2] = await connection.execute<any>(
+      'INSERT INTO tickets (usuario_id, categoria_id, titulo, descricao, status, admin_id, criado_em) VALUES (?, 2, ?, ?, ?, ?, NOW() - INTERVAL 3 HOUR)',
       [
-        alunoId,
-        'Ar condicionado fazendo barulho excessivo',
-        'O ar condicionado da sala 204 está com um estalo muito alto e não está resfriando adequadamente a sala durante as aulas da tarde.',
+        estudante1Id,
+        'Projetor da Sala 102 não liga',
+        'O projetor da Sala 102 (laboratório de Redes) parou de responder ao controle remoto e o LED indicador está piscando em vermelho. Precisamos para a aula de hoje à noite.',
         'em_andamento',
-        adminId
+        admin2Id
       ]
     );
-    const t2Id = t2Res.insertId;
-    // Mensagens da conversa
-    await connection.execute(
-      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 5 HOUR)',
-      [t2Id, alunoId, 'O ar condicionado da sala 204 está com um estalo muito alto e não está resfriando adequadamente a sala durante as aulas da tarde.']
-    );
-    await connection.execute(
-      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 4 HOUR)',
-      [t2Id, adminId, 'Olá! Recebemos sua solicitação sobre o ar condicionado da sala 204. Já repassamos para a equipe de manutenção de infraestrutura predial verificar o termostato e o ventilador interno.']
-    );
+    const t2Id = t2.insertId;
     await connection.execute(
       'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 3 HOUR)',
-      [t2Id, alunoId, 'Muito obrigado pelo retorno rápido! Realmente está inviável assistir aula lá à tarde. Fico no aguardo.']
+      [t2Id, estudante1Id, 'O projetor da Sala 102 (laboratório de Redes) parou de responder ao controle remoto e o LED indicador está piscando em vermelho. Precisamos para a aula de hoje à noite.']
+    );
+    await connection.execute(
+      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 2 HOUR)',
+      [t2Id, admin2Id, 'Olá Caio! Entendido. Esse sintoma geralmente indica superaquecimento ou necessidade de troca da lâmpada. Estou subindo com a escada e uma lâmpada reserva para fazer a troca em 20 minutos.']
+    );
+    await connection.execute(
+      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 1 HOUR)',
+      [t2Id, estudante1Id, 'Excelente Bruno! Estaremos te esperando aqui. Muito obrigado pela agilidade!']
     );
 
-    // 7. Inserir Ticket 3: Finalizado
-    console.log('[Seed] Criando Ticket 3 (Finalizado)...');
-    const [t3Res] = await connection.execute<any>(
+    // Chamado 3: Mariana Santos - Categoria Financeiro - FINALIZADO (Amanda Costa)
+    console.log('[Seed] Criando chamado 3...');
+    const [t3] = await connection.execute<any>(
       'INSERT INTO tickets (usuario_id, categoria_id, titulo, descricao, status, admin_id, criado_em) VALUES (?, 3, ?, ?, ?, ?, NOW() - INTERVAL 24 HOUR)',
       [
-        alunoId,
-        'Erro na emissão do boleto da mensalidade',
-        'Meu boleto deste mês veio com o valor integral, mas eu possuo bolsa de 50%. Poderiam corrigir para que eu efetue o pagamento com o desconto?',
+        estudante2Id,
+        'Erro no boleto de Rematrícula',
+        'Meu boleto de rematrícula veio cobrando o valor integral, porém tenho direito a desconto de bolsa de monitoria de 25%. Podem me ajudar com a reemissão?',
         'finalizado',
-        adminId
+        admin1Id
       ]
     );
-    const t3Id = t3Res.insertId;
+    const t3Id = t3.insertId;
     await connection.execute(
       'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 24 HOUR)',
-      [t3Id, alunoId, 'Meu boleto deste mês veio com o valor integral, mas eu possuo bolsa de 50%. Poderiam corrigir para que eu efetue o pagamento com o desconto?']
+      [t3Id, estudante2Id, 'Meu boleto de rematrícula veio cobrando o valor integral, porém tenho direito a desconto de bolsa de monitoria de 25%. Podem me ajudar com a reemissão?']
     );
     await connection.execute(
-      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 22 HOUR)',
-      [t3Id, adminId, 'Olá, Caio. Verificamos no financeiro e seu desconto de bolsa não havia sido aplicado automaticamente devido a uma atualização cadastral. Acabamos de reemitir o boleto com o valor correto de 50%. Você já pode baixá-lo no portal financeiro.']
+      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 20 HOUR)',
+      [t3Id, admin1Id, 'Olá Mariana! Identifiquei o erro no lote de faturamento. Sua bolsa já foi homologada e a reemissão do boleto com 25% de desconto foi feita. Você já pode acessar a nova linha digitável no seu portal acadêmico.']
     );
     await connection.execute(
-      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 21 HOUR)',
-      [t3Id, alunoId, 'Perfeito, acabei de conferir e o valor está corrigido. Já efetuei o pagamento. Muito obrigado pela agilidade! Pode encerrar o chamado.']
+      'INSERT INTO mensagens (ticket_id, usuario_id, mensagem, tipo, criado_em) VALUES (?, ?, ?, "texto", NOW() - INTERVAL 19 HOUR)',
+      [t3Id, estudante2Id, 'Consegui baixar aqui Amanda! Tudo certinho agora. Muito obrigada pela ajuda! Pode fechar o chamado.']
     );
 
-    console.log('[Seed] Banco de dados semeado com sucesso com 3 tickets representativos!');
+    // 7. Inserir Notificações
+    console.log('[Seed] Criando notificações para os usuários...');
+    // Para Caio Henrique
+    await connection.execute(
+      'INSERT INTO notificacoes (usuario_id, titulo, mensagem, lida, tipo, link) VALUES (?, ?, ?, 0, "sucesso", ?)',
+      [estudante1Id, 'Atualização no chamado do projetor', 'O técnico Bruno Souza respondeu ao seu chamado.', `/dashboard?ticket=${t2Id}`]
+    );
+    // Para Mariana
+    await connection.execute(
+      'INSERT INTO notificacoes (usuario_id, titulo, mensagem, lida, tipo, link) VALUES (?, ?, ?, 1, "info", ?)',
+      [estudante2Id, 'Chamado Finalizado', 'Seu chamado sobre o boleto de rematrícula foi finalizado.', `/dashboard?ticket=${t3Id}`]
+    );
+
+    console.log('[Seed] Semeamento finalizado com sucesso!');
   } catch (err) {
-    console.error('[Seed] Erro ao semear o banco de dados:', err);
+    console.error('[Seed] Erro crítico ao semear o banco de dados:', err);
   } finally {
     await connection.end();
   }
