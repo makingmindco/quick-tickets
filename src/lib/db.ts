@@ -43,6 +43,29 @@ async function initDatabase() {
     } catch (colErr) {
       console.warn('[Banco] Aviso ao verificar/adicionar colunas em "usuarios" (a tabela pode não existir ainda):', colErr);
     }
+
+    // Verificar e criar colunas na tabela tickets caso não existam
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM tickets');
+      const columnNames = (cols as any[]).map((c: any) => c.Field);
+      
+      if (!columnNames.includes('urgencia_solicitada')) {
+        await pool.execute('ALTER TABLE tickets ADD COLUMN urgencia_solicitada TINYINT(1) DEFAULT 0');
+        console.log('[Banco] Coluna "urgencia_solicitada" adicionada à tabela "tickets".');
+      }
+      
+      if (!columnNames.includes('atendido_em')) {
+        await pool.execute('ALTER TABLE tickets ADD COLUMN atendido_em DATETIME DEFAULT NULL');
+        console.log('[Banco] Coluna "atendido_em" adicionada à tabela "tickets".');
+      }
+      
+      if (!columnNames.includes('finalizado_em')) {
+        await pool.execute('ALTER TABLE tickets ADD COLUMN finalizado_em DATETIME DEFAULT NULL');
+        console.log('[Banco] Coluna "finalizado_em" adicionada à tabela "tickets".');
+      }
+    } catch (colErr) {
+      console.warn('[Banco] Aviso ao verificar/adicionar colunas em "tickets":', colErr);
+    }
     
     // 1. Criar tabela de avisos caso não exista
     const createAvisosTable = `

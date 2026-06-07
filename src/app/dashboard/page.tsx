@@ -152,9 +152,18 @@ export default function StudentDashboard() {
     if (ticketView !== "chat" || !selectedTicket) return;
 
     const updateTimer = () => {
-      const createdTime = new Date(selectedTicket.criado_em).getTime();
-      const now = new Date().getTime();
-      const diff = now - createdTime;
+      const start = selectedTicket.atendido_em ? new Date(selectedTicket.atendido_em).getTime() : 0;
+      if (selectedTicket.status === "pendente" || start === 0) {
+        setElapsedTimeText("00:00:00");
+        setElapsedPercent(0);
+        return;
+      }
+      
+      const end = selectedTicket.status === "finalizado" && selectedTicket.finalizado_em
+        ? new Date(selectedTicket.finalizado_em).getTime()
+        : new Date().getTime();
+      
+      const diff = end - start;
 
       if (diff <= 0) {
         setElapsedTimeText("00:00:00");
@@ -299,7 +308,7 @@ export default function StudentDashboard() {
         toast.success(`Chamado #${ticketId} encerrado com sucesso.`);
         loadDashboardData();
         if (ticketView === "chat" && selectedTicketId === ticketId) {
-          const updated = { ...selectedTicket!, status: "finalizado" as const };
+          const updated = { ...selectedTicket!, status: "finalizado" as const, finalizado_em: new Date().toISOString() };
           setSelectedTicket(updated);
         }
       } else {
@@ -313,8 +322,30 @@ export default function StudentDashboard() {
   };
 
   // Request urgency handler (mock action for students)
-  const handleRequestUrgency = () => {
-    toast.success("Solicitação de urgência registrada! A equipe de coordenação foi informada.");
+  // Request urgency handler
+  const handleRequestUrgency = async () => {
+    if (!selectedTicket) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/tickets/${selectedTicket.id}/urgente`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Solicitação de urgência registrada! A equipe de coordenação foi informada.");
+        const updated = { ...selectedTicket, urgencia_solicitada: 1 };
+        setSelectedTicket(updated);
+        setMyTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...t, urgencia_solicitada: 1 } : t));
+      } else {
+        toast.error(data.erro || "Erro ao solicitar urgência.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro de conexão.");
+    }
   };
 
   // Wizard Ticket Submission
@@ -1589,13 +1620,23 @@ export default function StudentDashboard() {
                         
                         {selectedTicket.status !== "finalizado" ? (
                           <>
-                            <button
-                              onClick={handleRequestUrgency}
-                              className="w-full h-11 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-slate-350 dark:hover:border-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
-                            >
-                              <span>Solicitar Urgência</span>
-                              <AlertCircle className="h-4.5 w-4.5 text-[#00afef]" />
-                            </button>
+                            {selectedTicket.urgencia_solicitada === 1 ? (
+                              <div
+                                className="w-full h-11 bg-slate-100 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800/80 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold flex items-center justify-between px-4 select-none"
+                                title="Urgência já solicitada"
+                              >
+                                <span>Urgência Solicitada</span>
+                                <Check className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={handleRequestUrgency}
+                                className="w-full h-11 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-slate-350 dark:hover:border-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                              >
+                                <span>Solicitar Urgência</span>
+                                <AlertCircle className="h-4.5 w-4.5 text-[#00afef]" />
+                              </button>
+                            )}
 
                             <button
                               onClick={() => handleCloseTicket(selectedTicket.id)}
@@ -1907,13 +1948,23 @@ export default function StudentDashboard() {
                       
                       {selectedTicket.status !== "finalizado" ? (
                         <>
-                          <button
-                            onClick={handleRequestUrgency}
-                            className="w-full h-11 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-slate-350 dark:hover:border-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
-                          >
-                            <span>Solicitar Urgência</span>
-                            <AlertCircle className="h-4.5 w-4.5 text-[#00afef]" />
-                          </button>
+                          {selectedTicket.urgencia_solicitada === 1 ? (
+                            <div
+                              className="w-full h-11 bg-slate-100 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-800/80 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold flex items-center justify-between px-4 select-none"
+                              title="Urgência já solicitada"
+                            >
+                              <span>Urgência Solicitada</span>
+                              <Check className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={handleRequestUrgency}
+                              className="w-full h-11 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-slate-350 dark:hover:border-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                            >
+                              <span>Solicitar Urgência</span>
+                              <AlertCircle className="h-4.5 w-4.5 text-[#00afef]" />
+                            </button>
+                          )}
 
                           <button
                             onClick={() => handleCloseTicket(selectedTicket.id)}

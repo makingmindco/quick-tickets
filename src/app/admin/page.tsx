@@ -232,9 +232,18 @@ export default function AdminDashboard() {
     if (ticketView !== "chat" || !selectedTicket) return;
 
     const updateTimer = () => {
-      const createdTime = new Date(selectedTicket.criado_em).getTime();
-      const now = new Date().getTime();
-      const diff = now - createdTime;
+      const start = selectedTicket.atendido_em ? new Date(selectedTicket.atendido_em).getTime() : 0;
+      if (selectedTicket.status === "pendente" || start === 0) {
+        setElapsedTimeText("00:00:00");
+        setElapsedPercent(0);
+        return;
+      }
+      
+      const end = selectedTicket.status === "finalizado" && selectedTicket.finalizado_em
+        ? new Date(selectedTicket.finalizado_em).getTime()
+        : new Date().getTime();
+      
+      const diff = end - start;
 
       if (diff <= 0) {
         setElapsedTimeText("00:00:00");
@@ -414,7 +423,7 @@ export default function AdminDashboard() {
         toast.success(`Você assumiu o chamado #${ticket.id}!`);
         loadData();
         if (ticketView === "chat" && selectedTicketId === ticket.id) {
-          const updated = { ...selectedTicket!, status: "em_andamento" as const, admin_id: currentUser?.id || null };
+          const updated = { ...selectedTicket!, status: "em_andamento" as const, admin_id: currentUser?.id || null, atendido_em: selectedTicket?.atendido_em || new Date().toISOString() };
           setSelectedTicket(updated);
         }
       } else {
@@ -468,7 +477,13 @@ export default function AdminDashboard() {
         setStatusDialogTicket(null);
         loadData();
         if (ticketView === "chat" && selectedTicketId === statusDialogTicket.id) {
-          const updated = { ...selectedTicket!, status: ticketStatus, prazo: ticketPrazo ? new Date(ticketPrazo).toISOString() : null };
+          const updated = { 
+            ...selectedTicket!, 
+            status: ticketStatus, 
+            prazo: ticketPrazo ? new Date(ticketPrazo).toISOString() : null,
+            atendido_em: ticketStatus === "em_andamento" || ticketStatus === "finalizado" ? (selectedTicket?.atendido_em || new Date().toISOString()) : null,
+            finalizado_em: ticketStatus === "finalizado" ? (selectedTicket?.finalizado_em || new Date().toISOString()) : null
+          };
           setSelectedTicket(updated);
         }
       } else {
@@ -505,7 +520,13 @@ export default function AdminDashboard() {
         toast.success(`Chamado #${ticketId} finalizado com sucesso!`);
         loadData();
         if (ticketView === "chat" && selectedTicketId === ticketId) {
-          const updated = { ...selectedTicket!, status: "finalizado" as const, prazo: null };
+          const updated = { 
+            ...selectedTicket!, 
+            status: "finalizado" as const, 
+            prazo: null, 
+            finalizado_em: new Date().toISOString(), 
+            atendido_em: selectedTicket?.atendido_em || new Date().toISOString() 
+          };
           setSelectedTicket(updated);
         }
       } else {

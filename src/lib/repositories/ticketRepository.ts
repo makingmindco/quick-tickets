@@ -16,6 +16,9 @@ export interface TicketDB extends RowDataPacket {
   admin_nome?: string;
   cliente_nome?: string;
   cliente_email?: string;
+  urgencia_solicitada?: number;
+  atendido_em?: Date | string | null;
+  finalizado_em?: Date | string | null;
 }
 
 class TicketRepository {
@@ -52,7 +55,9 @@ class TicketRepository {
 
   async findByUserId(usuario_id: number): Promise<TicketDB[]> {
     const sql = `
-      SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, c.nome AS categoria 
+      SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
+             t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
+             c.nome AS categoria 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
       WHERE t.usuario_id = ?
@@ -65,7 +70,17 @@ class TicketRepository {
   async closeByUser(id: number, usuario_id: number): Promise<boolean> {
     const sql = `
       UPDATE tickets 
-      SET status = 'finalizado' 
+      SET status = 'finalizado', finalizado_em = NOW() 
+      WHERE id = ? AND usuario_id = ?
+    `;
+    const [result] = await db.execute<ResultSetHeader>(sql, [id, usuario_id]);
+    return result.affectedRows > 0;
+  }
+
+  async requestUrgency(id: number, usuario_id: number): Promise<boolean> {
+    const sql = `
+      UPDATE tickets 
+      SET urgencia_solicitada = 1 
       WHERE id = ? AND usuario_id = ?
     `;
     const [result] = await db.execute<ResultSetHeader>(sql, [id, usuario_id]);
@@ -75,6 +90,7 @@ class TicketRepository {
   async findAdminQueue(): Promise<TicketDB[]> {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.prazo, t.criado_em, 
+             t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
              c.nome AS categoria, u.nome AS cliente 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
@@ -90,12 +106,24 @@ class TicketRepository {
     id: number,
     { status, prazo, admin_id }: { status: 'pendente' | 'em_andamento' | 'finalizado'; prazo: string | null; admin_id: number | null }
   ): Promise<boolean> {
+    let statusSql = '';
+    const params: any[] = [status, prazo, admin_id];
+
+    if (status === 'em_andamento') {
+      statusSql = ', atendido_em = COALESCE(atendido_em, NOW())';
+    } else if (status === 'finalizado') {
+      statusSql = ', finalizado_em = COALESCE(finalizado_em, NOW()), atendido_em = COALESCE(atendido_em, NOW())';
+    } else if (status === 'pendente') {
+      statusSql = ', atendido_em = NULL, finalizado_em = NULL';
+    }
+
     const sql = `
       UPDATE tickets 
-      SET status = ?, prazo = ?, admin_id = ? 
+      SET status = ?, prazo = ?, admin_id = ? ${statusSql}
       WHERE id = ?
     `;
-    const [result] = await db.execute<ResultSetHeader>(sql, [status, prazo, admin_id, id]);
+    params.push(id);
+    const [result] = await db.execute<ResultSetHeader>(sql, params);
     return result.affectedRows > 0;
   }
 
@@ -112,6 +140,7 @@ class TicketRepository {
   async findAdminFinished(): Promise<TicketDB[]> {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
+             t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
              c.nome AS categoria, u.nome AS cliente, a.nome AS admin_nome 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id

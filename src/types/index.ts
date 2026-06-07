@@ -24,6 +24,9 @@ export interface Ticket {
   cliente_nome?: string;
   cliente_email?: string;
   admin_nome?: string;
+  urgencia_solicitada?: number;
+  atendido_em?: string | Date | null;
+  finalizado_em?: string | Date | null;
 }
 
 export interface Message {
