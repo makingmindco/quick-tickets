@@ -200,7 +200,7 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-zinc-950 font-poppins">
+    <div className="min-h-screen flex bg-slate-50 dark:bg-zinc-950 font-sans">
       {/* Form Area */}
       <div className="w-full lg:w-[50%] flex items-center justify-center p-6 sm:p-12 md:p-16">
         <div className="w-full max-w-[400px] flex flex-col">

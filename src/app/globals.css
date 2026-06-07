@@ -7,10 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-outfit);
-  --font-heading: var(--font-outfit);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter);
   --font-outfit: var(--font-outfit);
   --font-poppins: var(--font-poppins);
+  --font-inter: var(--font-inter);
   --color-primary-corp: #0f62ac;
   --color-primary-corp-hover: #0c5290;
   --color-accent-blue: #00afef;
