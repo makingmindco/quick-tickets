@@ -1219,7 +1219,7 @@ export default function AdminDashboard() {
         </header>
 
         {/* Dynamic Inner Panel View Wrapper */}
-        <div className={`flex-1 ${
+        <div className={`flex-1 flex flex-col ${
           ticketView === "chat"
             ? "overflow-hidden p-0 md:p-6"
             : "overflow-y-auto p-6 md:p-8"
@@ -1227,7 +1227,7 @@ export default function AdminDashboard() {
           
           {/* TICKET DETAILS SCREEN (3-Column View, Screenshot 4) */}
           {ticketView === "chat" && selectedTicket ? (
-            <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden">
+            <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden relative">
               
               {/* Column 1: Requestor Metadata Panel (Left) */}
               <div className={`${

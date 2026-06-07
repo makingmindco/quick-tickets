@@ -839,7 +839,7 @@ export default function StudentDashboard() {
         </header>
 
         {/* Dynamic Inner Panel View Wrapper */}
-        <div className={`flex-1 ${
+        <div className={`flex-1 flex flex-col ${
           activeTab === "tickets" && ticketView === "chat"
             ? "overflow-hidden p-0 md:p-6"
             : "overflow-y-auto p-6 md:p-8"
@@ -1008,7 +1008,7 @@ export default function StudentDashboard() {
 
           {/* TAB 2: TICKETS (LIST/WIZARD/CHAT) */}
           {activeTab === "tickets" && (
-            <div className="h-full">
+            <div className="h-full w-full flex flex-col flex-1 overflow-hidden">
               
               {/* SUB-VIEW 2.1: LIST OF TICKETS */}
               {ticketView === "list" && (
@@ -1417,7 +1417,7 @@ export default function StudentDashboard() {
 
               {/* SUB-VIEW 2.3: 3-COLUMN TICKET DETAILED CONVERSATION VIEW */}
               {ticketView === "chat" && selectedTicket && (
-                <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden animate-in fade-in duration-200">
+                <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden relative animate-in fade-in duration-200">
                   
                   {/* Column 1: Requestor Metadata Panel (Left) */}
                   <div className={`${
