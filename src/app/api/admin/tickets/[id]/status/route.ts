@@ -43,16 +43,14 @@ export async function PUT(
           usuarioId: ticket.usuario_id,
           titulo: 'Chamado em atendimento 💬',
           mensagem: `Seu chamado #${ticket.id} (${ticket.titulo || ticket.categoria}) foi assumido e está em atendimento.`,
-          tipo: 'atendimento',
-          link: `/dashboard`
+          link: `/dashboard?ticketId=${ticket.id}`
         });
       } else if (status === 'finalizado') {
         await notificationRepository.create({
           usuarioId: ticket.usuario_id,
           titulo: 'Chamado resolvido! ✅',
           mensagem: `Seu chamado #${ticket.id} (${ticket.titulo || ticket.categoria}) foi finalizado por ${user.nome}.`,
-          tipo: 'finalizado',
-          link: `/dashboard`
+          link: `/dashboard?ticketId=${ticket.id}`
         });
       }
     }

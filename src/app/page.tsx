@@ -41,6 +41,19 @@ export default function AuthPage() {
     }
   }, []);
 
+  // Update Page Title dynamically
+  useEffect(() => {
+    if (activeBox === "login") {
+      document.title = "QuickTickets - Entrar";
+    } else if (activeBox === "register") {
+      document.title = "QuickTickets - Cadastrar";
+    } else if (activeBox === "forgot") {
+      document.title = "QuickTickets - Recuperar Senha";
+    } else if (activeBox === "confirm") {
+      document.title = "QuickTickets - Confirmar E-mail";
+    }
+  }, [activeBox]);
+
   // Password strength logic
   const regSenhaCriteria = {
     length: regSenha.length >= 8,

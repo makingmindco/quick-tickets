@@ -270,6 +270,54 @@ export default function AdminDashboard() {
     return () => clearInterval(timer);
   }, [ticketView, selectedTicket]);
 
+  // Update document title dynamically based on active tab and view
+  useEffect(() => {
+    if (ticketView === "chat" && selectedTicket) {
+      document.title = `QuickTickets - Atendimento QT-${selectedTicket.id}`;
+    } else {
+      if (activeTab === "fila") {
+        document.title = "QuickTickets - Fila de Chamados";
+      } else if (activeTab === "resolvidos") {
+        document.title = "QuickTickets - Chamados Resolvidos";
+      } else if (activeTab === "usuarios") {
+        document.title = "QuickTickets - Gestão de Usuários";
+      } else if (activeTab === "avisos") {
+        document.title = "QuickTickets - Mural de Avisos";
+      } else if (activeTab === "configuracoes") {
+        document.title = "QuickTickets - Ajustes do Painel";
+      } else {
+        document.title = "QuickTickets - Painel Admin";
+      }
+    }
+  }, [activeTab, ticketView, selectedTicket]);
+
+  // Auto-open ticket from notification query parameter
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ticketIdParam = params.get("ticketId");
+      if (ticketIdParam) {
+        const ticketId = parseInt(ticketIdParam);
+        const allTickets = [...activeTickets, ...resolvedTickets];
+        if (allTickets.length > 0) {
+          const ticket = allTickets.find(t => t.id === ticketId);
+          if (ticket) {
+            setSelectedTicketId(ticketId);
+            setSelectedTicket(ticket);
+            setChatMessages([]);
+            fetchChatMessages(ticketId);
+            setTicketView("chat");
+            setShowDetails(false);
+            
+            // Clean up query param from URL without page reload
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+          }
+        }
+      }
+    }
+  }, [activeTickets, resolvedTickets, ticketView]);
+
   // Scroll chat to bottom
   useEffect(() => {
     if (chatMessages.length > 0) {

@@ -190,6 +190,54 @@ export default function StudentDashboard() {
     return () => clearInterval(timer);
   }, [ticketView, selectedTicket]);
 
+  // Update document title dynamically based on active tab and view
+  useEffect(() => {
+    if (activeTab === "inicio") {
+      document.title = "QuickTickets - Início";
+    } else if (activeTab === "tickets") {
+      if (ticketView === "list") {
+        document.title = "QuickTickets - Meus Chamados";
+      } else if (ticketView === "create") {
+        document.title = "QuickTickets - Novo Chamado";
+      } else if (ticketView === "chat" && selectedTicket) {
+        document.title = `QuickTickets - Chamado QT-${selectedTicket.id}`;
+      } else {
+        document.title = "QuickTickets - Chamados";
+      }
+    } else if (activeTab === "settings") {
+      document.title = "QuickTickets - Ajustes da Conta";
+    } else {
+      document.title = "QuickTickets - Painel";
+    }
+  }, [activeTab, ticketView, selectedTicket]);
+
+  // Auto-open ticket from notification query parameter
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ticketIdParam = params.get("ticketId");
+      if (ticketIdParam) {
+        const ticketId = parseInt(ticketIdParam);
+        if (myTickets.length > 0) {
+          const ticket = myTickets.find(t => t.id === ticketId);
+          if (ticket) {
+            setSelectedTicketId(ticketId);
+            setSelectedTicket(ticket);
+            setChatMessages([]);
+            fetchChatMessages(ticketId);
+            setActiveTab("tickets");
+            setTicketView("chat");
+            setShowDetails(false);
+            
+            // Clean up query param from URL without page reload
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+          }
+        }
+      }
+    }
+  }, [myTickets, ticketView]);
+
   // Scroll chat to bottom
   useEffect(() => {
     if (chatMessages.length > 0) {

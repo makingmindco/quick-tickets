@@ -17,6 +17,7 @@ function ResetPasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    document.title = "QuickTickets - Redefinir Senha";
     if (!token) {
       toast.error("Token de recuperação ausente. Redirecionando...");
       router.push("/");

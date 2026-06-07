@@ -120,8 +120,7 @@ export async function POST(
         usuarioId: ticket.usuario_id,
         titulo: 'Nova resposta no chamado 💬',
         mensagem: `A equipe de suporte respondeu no chamado #${ticket.id} (${ticket.titulo || ticket.categoria}).`,
-        tipo: 'mensagem',
-        link: '/dashboard'
+        link: `/dashboard?ticketId=${ticket.id}`
       });
 
       if (ticket.cliente_email && ticket.cliente_nome) {
@@ -142,8 +141,7 @@ export async function POST(
           usuarioId: ticket.admin_id,
           titulo: 'Nova resposta do aluno 💬',
           mensagem: `O aluno ${user.nome} enviou uma mensagem no chamado #${ticket.id} (${ticket.titulo || ticket.categoria}).`,
-          tipo: 'mensagem',
-          link: '/admin'
+          link: `/admin?ticketId=${ticket.id}`
         });
       }
     }
