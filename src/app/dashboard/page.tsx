@@ -1554,6 +1554,90 @@ export default function StudentDashboard() {
                         </div>
                       )}
                     </div>
+
+                    {/* Mobile-only sections from Column 3 */}
+                    <div className="xl:hidden space-y-6 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                      {/* circular SLA counter */}
+                      <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">
+                        <span className="text-[9px] font-extrabold text-slate-355 tracking-wider uppercase">TEMPO EM ABERTO</span>
+                        
+                        <div className="relative flex items-center justify-center">
+                          <svg className="w-28 h-28 transform -rotate-90">
+                            <circle cx="56" cy="56" r="46" className="stroke-slate-800" strokeWidth="6" fill="transparent" />
+                            <circle cx="56" cy="56" r="46" className={`transition-all duration-500 strokeWidth="6" fill="transparent" ${
+                              elapsedPercent >= 100 ? "stroke-red-500" : "stroke-[#00afef]"
+                            }`} strokeWidth="6" strokeDasharray={289.026} strokeDashoffset={289.026 - (289.026 * elapsedPercent) / 100} strokeLinecap="round" />
+                          </svg>
+                          <div className="absolute flex flex-col items-center justify-center">
+                            <span className="text-sm font-black font-mono tracking-tight">
+                              {elapsedTimeText}
+                            </span>
+                            <span className="text-[8px] font-bold text-slate-450 uppercase tracking-wide">decorrido</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg text-[9px] font-bold text-[#00afef] tracking-wide w-full uppercase">
+                          SLA ATIVO
+                        </div>
+                      </div>
+
+                      {/* STATUS CONTROL Actions */}
+                      <div className="space-y-2 select-none">
+                        <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">AÇÕES DO ESTUDANTE</span>
+                        
+                        {selectedTicket.status !== "finalizado" ? (
+                          <>
+                            <button
+                              onClick={handleRequestUrgency}
+                              className="w-full h-11 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-slate-350 dark:hover:border-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-850 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                            >
+                              <span>Solicitar Urgência</span>
+                              <AlertCircle className="h-4.5 w-4.5 text-[#00afef]" />
+                            </button>
+
+                            <button
+                              onClick={() => handleCloseTicket(selectedTicket.id)}
+                              className="w-full h-11 bg-white dark:bg-zinc-800 border border-red-200 dark:border-red-950/20 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 dark:text-red-400 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                            >
+                              <span>Cancelar Chamado</span>
+                              <X className="h-4.5 w-4.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="p-3 border border-emerald-250 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-705 dark:text-emerald-300 rounded-xl text-center text-xs font-bold">
+                            ✓ Chamado Encerrado
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ACTIVITY LOG timeline */}
+                      <div className="space-y-3.5 select-none">
+                        <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">LOG DE ATIVIDADES</span>
+                        <div className="space-y-4 border-l border-slate-200 dark:border-zinc-800 pl-3.5 relative">
+                          <div className="relative text-xs space-y-0.5">
+                            <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-slate-400 border border-white dark:border-zinc-900" />
+                            <p className="font-bold text-slate-700 dark:text-slate-300">Chamado Aberto</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">{new Date(selectedTicket.criado_em).toLocaleDateString("pt-BR")}</p>
+                          </div>
+
+                          {selectedTicket.admin_id && (
+                            <div className="relative text-xs space-y-0.5">
+                              <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-blue-500 border border-white dark:border-zinc-900" />
+                              <p className="font-bold text-slate-700 dark:text-slate-300">Suporte Atribuído</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Atendimento iniciado</p>
+                            </div>
+                          )}
+
+                          {selectedTicket.status === "finalizado" && (
+                            <div className="relative text-xs space-y-0.5">
+                              <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />
+                              <p className="font-bold text-slate-700 dark:text-slate-300">Ticket Resolvido</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Encerrado no portal</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Column 2: Chat Conversation Panel (Center) */}
@@ -1789,7 +1873,7 @@ export default function StudentDashboard() {
                   </div>
 
                   {/* Column 3: SLA Countdown Ring & Actions Panel (Right) */}
-                  <div className="w-full xl:w-72 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
+                  <div className="hidden xl:flex xl:flex-col w-full xl:w-72 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
                     
                     {/* circular SLA counter */}
                     <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">

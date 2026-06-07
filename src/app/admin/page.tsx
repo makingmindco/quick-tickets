@@ -1361,6 +1361,109 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+
+                {/* Mobile-only sections from Column 3 */}
+                <div className="xl:hidden space-y-6 pt-4 border-t border-slate-100">
+                  {/* circular SLA counter */}
+                  <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">
+                    <span className="text-[9px] font-extrabold text-slate-355 tracking-wider uppercase">TEMPO EM ABERTO</span>
+                    
+                    <div className="relative flex items-center justify-center">
+                      <svg className="w-28 h-28 transform -rotate-90">
+                        <circle cx="56" cy="56" r="46" className="stroke-slate-800" strokeWidth="6" fill="transparent" />
+                        <circle cx="56" cy="56" r="46" className={`transition-all duration-500 strokeWidth="6" fill="transparent" ${
+                          elapsedPercent >= 100 ? "stroke-red-500" : "stroke-[#00afef]"
+                        }`} strokeWidth="6" strokeDasharray={289.026} strokeDashoffset={289.026 - (289.026 * elapsedPercent) / 100} strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-sm font-black font-mono tracking-tight">
+                          {elapsedTimeText}
+                        </span>
+                        <span className="text-[8px] font-bold text-slate-450 uppercase tracking-wide font-sans">decorrido</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg text-[9px] font-bold text-[#00afef] tracking-wide w-full uppercase">
+                      Nível de SLA: {selectedTicket.categoria_id === 1 ? "Padrão Acadêmico" : "Infraestrutura Urgente"}
+                    </div>
+                  </div>
+
+                  {/* STATUS CONTROL Actions */}
+                  <div className="space-y-2 select-none">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">CONTROLE DO STATUS</span>
+                    
+                    {selectedTicket.status !== "finalizado" ? (
+                      <>
+                        {selectedTicket.status === "pendente" ? (
+                          <button
+                            onClick={() => handleAssumeTicket(selectedTicket)}
+                            className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                          >
+                            <span>Assumir Chamado</span>
+                            <UserCheck className="h-4.5 w-4.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleFinalizeTicket(selectedTicket.id)}
+                            className="w-full h-11 bg-[#10b981] hover:bg-[#0da06f] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                          >
+                            <span>Marcar Resolvido</span>
+                            <CheckCircle2 className="h-4.5 w-4.5 text-white" />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => openStatusDialog(selectedTicket)}
+                          className="w-full h-11 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                        >
+                          <span>Definir Prazo / Status</span>
+                          <Calendar className="h-4.5 w-4.5 text-slate-450" />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="p-3 border border-emerald-250 bg-emerald-50 text-emerald-700 rounded-xl text-center text-xs font-bold">
+                        ✓ Chamado Finalizado / Resolvido
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => handleFinalizeTicket(selectedTicket.id)}
+                      disabled={selectedTicket.status === "finalizado"}
+                      className="w-full h-11 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl text-xs font-bold flex items-center justify-between px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span>Rejeitar / Encerrar</span>
+                      <X className="h-4.5 w-4.5 text-red-450" />
+                    </button>
+                  </div>
+
+                  {/* ACTIVITY LOG timeline */}
+                  <div className="space-y-3.5 select-none">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">LOG DE ATIVIDADES</span>
+                    <div className="space-y-4 border-l border-slate-200 pl-3.5 relative">
+                      <div className="relative text-xs space-y-0.5">
+                        <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-slate-400 border border-white" />
+                        <p className="font-bold text-slate-700">Chamado Aberto</p>
+                        <p className="text-[10px] text-slate-455 font-bold">{new Date(selectedTicket.criado_em).toLocaleDateString("pt-BR")}</p>
+                      </div>
+
+                      {selectedTicket.admin_id && (
+                        <div className="relative text-xs space-y-0.5">
+                          <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white" />
+                          <p className="font-bold text-slate-700">Responsável Atribuído</p>
+                          <p className="text-[10px] text-slate-455 font-bold">Admin ID #{selectedTicket.admin_id}</p>
+                        </div>
+                      )}
+
+                      {selectedTicket.status === "finalizado" && (
+                        <div className="relative text-xs space-y-0.5">
+                          <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-white" />
+                          <p className="font-bold text-slate-700">Ticket Finalizado</p>
+                          <p className="text-[10px] text-slate-455 font-bold">Resolvido pelo Suporte</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Column 2: Chat Conversation Panel (Center) */}
@@ -1598,7 +1701,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Column 3: SLA Countdown Ring & Actions Panel (Right) */}
-              <div className="w-full xl:w-72 bg-white border border-slate-150 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
+              <div className="hidden xl:flex xl:flex-col w-full xl:w-72 bg-white border border-slate-150 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
                 
                 <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">
                   <span className="text-[9px] font-extrabold text-slate-350 tracking-wider uppercase">TEMPO EM ABERTO</span>
