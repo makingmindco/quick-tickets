@@ -24,6 +24,16 @@ export async function PUT(
       return NextResponse.json({ erro: 'Permissão negada ou ticket já finalizado.' }, { status: 403 });
     }
 
+    try {
+      const updatedTicket = await ticketRepository.findById(parseInt(id));
+      if (updatedTicket) {
+        const { serverEvents } = await import('@/lib/events');
+        serverEvents.emit(`status_update_${id}`, updatedTicket);
+      }
+    } catch (eventErr) {
+      console.error('Erro ao emitir status_update em close:', eventErr);
+    }
+
     if (ticket.cliente_email && ticket.cliente_nome) {
       await emailService.enviarNotificacaoFinalizado(
         ticket.cliente_email,

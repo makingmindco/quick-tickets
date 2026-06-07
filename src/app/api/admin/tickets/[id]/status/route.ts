@@ -35,6 +35,16 @@ export async function PUT(
       return NextResponse.json({ erro: 'Não foi possível atualizar o ticket.' }, { status: 400 });
     }
 
+    try {
+      const updatedTicket = await ticketRepository.findById(parseInt(id));
+      if (updatedTicket) {
+        const { serverEvents } = await import('@/lib/events');
+        serverEvents.emit(`status_update_${id}`, updatedTicket);
+      }
+    } catch (eventErr) {
+      console.error('Erro ao emitir status_update em admin status:', eventErr);
+    }
+
     // Enviar e-mails e criar notificações internas
     if (ticket.usuario_id) {
       const notificationRepository = (await import('@/lib/repositories/notificationRepository')).default;

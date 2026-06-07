@@ -63,6 +63,16 @@ async function initDatabase() {
         await pool.execute('ALTER TABLE tickets ADD COLUMN finalizado_em DATETIME DEFAULT NULL');
         console.log('[Banco] Coluna "finalizado_em" adicionada à tabela "tickets".');
       }
+
+      if (!columnNames.includes('avaliacao_nota')) {
+        await pool.execute('ALTER TABLE tickets ADD COLUMN avaliacao_nota TINYINT DEFAULT NULL');
+        console.log('[Banco] Coluna "avaliacao_nota" adicionada à tabela "tickets".');
+      }
+
+      if (!columnNames.includes('avaliacao_comentario')) {
+        await pool.execute('ALTER TABLE tickets ADD COLUMN avaliacao_comentario TEXT DEFAULT NULL');
+        console.log('[Banco] Coluna "avaliacao_comentario" adicionada à tabela "tickets".');
+      }
     } catch (colErr) {
       console.warn('[Banco] Aviso ao verificar/adicionar colunas em "tickets":', colErr);
     }
@@ -114,6 +124,34 @@ async function initDatabase() {
     `;
     await pool.execute(createNotificacoesTable);
     console.log('[Banco] Tabela "notificacoes" verificada/criada.');
+
+    // 4. Criar tabela de respostas rápidas caso não exista
+    const createCannedResponsesTable = `
+      CREATE TABLE IF NOT EXISTS respostas_rapidas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        titulo VARCHAR(255) NOT NULL,
+        mensagem TEXT NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+    await pool.execute(createCannedResponsesTable);
+    console.log('[Banco] Tabela "respostas_rapidas" verificada/criada.');
+
+    // Seed de respostas rápidas se a tabela estiver vazia
+    const [cannedRows]: any = await pool.execute('SELECT COUNT(*) as total FROM respostas_rapidas');
+    if (cannedRows[0]?.total === 0) {
+      const defaultCanned = [
+        ['Saudação Inicial', 'Olá! Como posso te ajudar hoje com a sua solicitação?'],
+        ['Aguardando Retorno', 'Ficamos no aguardo das informações solicitadas para prosseguirmos com o atendimento.'],
+        ['Problema Resolvido', 'O problema foi solucionado com sucesso. Vou finalizar este chamado, mas se precisar de algo mais, fique à vontade para abrir um novo chamado.'],
+        ['SLA - Atraso/Instabilidade', 'Pedimos desculpas pelo atraso. Identificamos uma instabilidade temporária em nosso sistema e nossa equipe técnica já está trabalhando para normalizar a situação o quanto antes.'],
+        ['Redirecionamento Setor', 'Estou encaminhando a sua solicitação para o setor específico responsável. Por favor, aguarde enquanto fazemos a transferência.'],
+      ];
+      for (const item of defaultCanned) {
+        await pool.execute('INSERT INTO respostas_rapidas (titulo, mensagem) VALUES (?, ?)', item);
+      }
+      console.log('[Banco] Respostas rápidas padrão inseridas com sucesso.');
+    }
 
     console.log('[Banco] Estrutura do banco de dados verificada com sucesso!');
   } catch (erro) {

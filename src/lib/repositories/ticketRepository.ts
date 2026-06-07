@@ -58,6 +58,7 @@ class TicketRepository {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
              t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
+             t.avaliacao_nota, t.avaliacao_comentario,
              c.nome AS categoria, NOW() as db_time 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
@@ -85,6 +86,16 @@ class TicketRepository {
       WHERE id = ? AND usuario_id = ?
     `;
     const [result] = await db.execute<ResultSetHeader>(sql, [id, usuario_id]);
+    return result.affectedRows > 0;
+  }
+
+  async saveFeedback(id: number, usuario_id: number, nota: number, comentario: string | null): Promise<boolean> {
+    const sql = `
+      UPDATE tickets 
+      SET avaliacao_nota = ?, avaliacao_comentario = ? 
+      WHERE id = ? AND usuario_id = ? AND status = 'finalizado'
+    `;
+    const [result] = await db.execute<ResultSetHeader>(sql, [nota, comentario, id, usuario_id]);
     return result.affectedRows > 0;
   }
 
@@ -142,6 +153,7 @@ class TicketRepository {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
              t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
+             t.avaliacao_nota, t.avaliacao_comentario,
              c.nome AS categoria, u.nome AS cliente, a.nome AS admin_nome, NOW() as db_time 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id

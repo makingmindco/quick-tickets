@@ -25,9 +25,17 @@ export function verifyToken(token: string): AuthUser | null {
 
 export function getAuthUser(req: Request): AuthUser | null {
   const authHeader = req.headers.get('authorization');
-  if (!authHeader) return null;
+  let token: string | null = null;
 
-  const token = authHeader.split(' ')[1]; // Expects "Bearer <token>"
+  if (authHeader) {
+    token = authHeader.split(' ')[1]; // Expects "Bearer <token>"
+  } else {
+    try {
+      const url = new URL(req.url);
+      token = url.searchParams.get('token');
+    } catch (e) {}
+  }
+
   if (!token) return null;
 
   return verifyToken(token);

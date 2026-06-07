@@ -50,8 +50,9 @@ export default function AdminDashboard() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  // Tab state: 'fila' | 'resolvidos' | 'usuarios' | 'avisos' | 'configuracoes'
-  const [activeTab, setActiveTab] = useState<"fila" | "resolvidos" | "usuarios" | "avisos" | "configuracoes">("fila");
+  // Tab state: 'fila' | 'resolvidos' | 'relatorios' | 'usuarios' | 'avisos' | 'configuracoes'
+  const [activeTab, setActiveTab] = useState<"fila" | "resolvidos" | "relatorios" | "usuarios" | "avisos" | "configuracoes">("fila");
+
 
   // Ticket sub-view: 'list' | 'chat'
   const [ticketView, setTicketView] = useState<"list" | "chat">("list");
@@ -68,6 +69,36 @@ export default function AdminDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [statusStats, setStatusStats] = useState({ pendente: 0, em_andamento: 0, finalizado: 0 });
   const [isLoadingData, setIsLoadingData] = useState(false);
+
+  // Metrics states
+  const [metricsData, setMetricsData] = useState<any>(null);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+
+  // Canned responses states
+  const [cannedResponses, setCannedResponses] = useState<{ id: number; titulo: string; mensagem: string }[]>([]);
+  const [showCannedDropdown, setShowCannedDropdown] = useState(false);
+  const [cannedSearchQuery, setCannedSearchQuery] = useState("");
+
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("todas");
+  const [filterPriority, setFilterPriority] = useState("todas");
+
+  const filteredActiveTickets = activeTickets.filter(ticket => {
+    const matchesSearch = 
+      (ticket.titulo && ticket.titulo.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (ticket.cliente && ticket.cliente.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (ticket.descricao && ticket.descricao.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (`#${ticket.id}`.includes(searchQuery));
+
+    const matchesCategory = filterCategory === "todas" || ticket.categoria === filterCategory;
+
+    const matchesPriority = filterPriority === "todas" || 
+      (filterPriority === "urgente" && ticket.urgencia_solicitada === 1) ||
+      (filterPriority === "normal" && ticket.urgencia_solicitada === 0);
+
+    return matchesSearch && matchesCategory && matchesPriority;
+  });
 
   // Chat message states
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -192,13 +223,59 @@ export default function AdminDashboard() {
 
     const interval = setInterval(() => {
       fetchNotifications();
-      if (ticketView === "chat" && selectedTicketId) {
-        fetchChatMessages(selectedTicketId);
-      }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [isLoadingAuth, activeTab, ticketView, selectedTicketId]);
+
+  // SSE connection for real-time chat
+  useEffect(() => {
+    if (ticketView !== "chat" || !selectedTicketId) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const eventSource = new EventSource(`/api/tickets/${selectedTicketId}/stream?token=${encodeURIComponent(token)}`);
+
+    eventSource.addEventListener("message_new", (event) => {
+      try {
+        const newMessage = JSON.parse(event.data);
+        setChatMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
+      } catch (err) {
+        console.error("Erro ao analisar nova mensagem SSE:", err);
+      }
+    });
+
+    eventSource.addEventListener("status_update", (event) => {
+      try {
+        const updatedTicket = JSON.parse(event.data);
+        setSelectedTicket(updatedTicket);
+        
+        // Update ticket inside activeTickets or resolvedTickets lists
+        setActiveTickets((prev) =>
+          prev.map((t) => (t.id === updatedTicket.id ? updatedTicket : t))
+        );
+        setResolvedTickets((prev) =>
+          prev.map((t) => (t.id === updatedTicket.id ? updatedTicket : t))
+        );
+      } catch (err) {
+        console.error("Erro ao analisar atualização de status SSE:", err);
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      console.warn("Conexão SSE encontrou um erro. Fechando/reconectando...", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [ticketView, selectedTicketId]);
 
   // Load system configurations from localStorage on mount safely
   useEffect(() => {
@@ -346,6 +423,61 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchCannedResponses = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/respostas-rapidas", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCannedResponses(data);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar respostas rápidas:", e);
+    }
+  };
+
+  const fetchMetricsData = async () => {
+    setIsLoadingMetrics(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/admin/metrics", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMetricsData(data);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar métricas:", e);
+    } finally {
+      setIsLoadingMetrics(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "relatorios") {
+      fetchMetricsData();
+    }
+  }, [activeTab]);
+
+  const handleChatInputChange = (val: string) => {
+    setNewChatMessage(val);
+    if (val.startsWith("/")) {
+      setShowCannedDropdown(true);
+      setCannedSearchQuery(val.slice(1));
+    } else {
+      setShowCannedDropdown(false);
+      setCannedSearchQuery("");
+    }
+  };
+
+  const handleSelectCanned = (message: string) => {
+    setNewChatMessage(message);
+    setShowCannedDropdown(false);
+  };
+
   const loadData = async () => {
     setIsLoadingData(true);
     try {
@@ -353,6 +485,7 @@ export default function AdminDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
 
       await syncClockOffset();
+      fetchCannedResponses();
 
       // Load Statistics
       const statsRes = await fetch("/api/admin/dashboard", { headers });
@@ -1007,6 +1140,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         setNewChatMessage("");
+        setShowCannedDropdown(false);
         clearChatAttachment();
         fetchChatMessages(selectedTicketId);
       } else {
@@ -1179,6 +1313,17 @@ export default function AdminDashboard() {
             >
               <CheckCircle2 className="h-4.5 w-4.5 shrink-0" />
               Histórico / Resolvidos
+            </button>
+            <button
+              onClick={() => { setActiveTab("relatorios"); setTicketView("list"); }}
+              className={`w-full flex items-center gap-3.5 py-3 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                activeTab === "relatorios" && ticketView === "list"
+                  ? "bg-[#1e293b] text-white border-l-4 border-emerald-500 rounded-l-none pl-3.5"
+                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-100 pl-4.5"
+              }`}
+            >
+              <BarChart3 className="h-4.5 w-4.5 shrink-0" />
+              Gráficos / Métricas
             </button>
             <button
               onClick={() => { setActiveTab("usuarios"); setTicketView("list"); }}
@@ -1507,6 +1652,40 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
+                {selectedTicket.status === "finalizado" && selectedTicket.avaliacao_nota !== null && (
+                  <>
+                    <hr className="border-slate-100 dark:border-zinc-800" />
+                    <div className="space-y-2.5">
+                      <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">AVALIAÇÃO DO ALUNO</span>
+                      <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-2">
+                        <div className="flex items-center gap-1 text-amber-500">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`h-4.5 w-4.5 ${i < (selectedTicket.avaliacao_nota || 0) ? "fill-current text-amber-500" : "text-slate-300 dark:text-zinc-700"}`}
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              fill="none"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                            </svg>
+                          ))}
+                        </div>
+                        {selectedTicket.avaliacao_comentario ? (
+                          <p className="text-[11px] text-slate-650 dark:text-zinc-350 font-medium leading-relaxed italic">
+                            "{selectedTicket.avaliacao_comentario}"
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 dark:text-zinc-550 font-medium italic">
+                            Sem comentário enviado.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {/* Mobile-only sections from Column 3 */}
                 <div className="xl:hidden space-y-6 pt-4 border-t border-slate-100 dark:border-zinc-800">
                   {/* circular SLA counter */}
@@ -1760,7 +1939,7 @@ export default function AdminDashboard() {
                     className="hidden"
                   />
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 relative">
                     {/* Private Internal Note checkbox toggle */}
                     <div className="flex items-center gap-2 px-1 select-none">
                       <input
@@ -1774,6 +1953,43 @@ export default function AdminDashboard() {
                         Nota interna / privada (Apenas para equipe de suporte)
                       </label>
                     </div>
+
+                    {/* Canned Responses Autocomplete Dropdown */}
+                    {showCannedDropdown && (
+                      <div className="absolute bottom-full mb-2 left-0 right-0 max-h-60 overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl z-50 p-2 flex flex-col gap-1">
+                        <div className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider px-2 py-1 border-b border-slate-100 dark:border-zinc-800/80 mb-1">
+                          Respostas Rápidas (Selecione uma)
+                        </div>
+                        {cannedResponses
+                          .filter(item => 
+                            item.titulo.toLowerCase().includes(cannedSearchQuery.toLowerCase()) ||
+                            item.mensagem.toLowerCase().includes(cannedSearchQuery.toLowerCase())
+                          )
+                          .map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSelectCanned(item.mensagem)}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-850 transition-colors flex flex-col gap-0.5 group"
+                            >
+                              <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 group-hover:text-emerald-500">
+                                {item.titulo}
+                              </span>
+                              <span className="text-[10px] text-slate-500 dark:text-zinc-450 line-clamp-1">
+                                {item.mensagem}
+                              </span>
+                            </button>
+                          ))}
+                        {cannedResponses.filter(item => 
+                          item.titulo.toLowerCase().includes(cannedSearchQuery.toLowerCase()) ||
+                          item.mensagem.toLowerCase().includes(cannedSearchQuery.toLowerCase())
+                        ).length === 0 && (
+                          <div className="text-[11px] text-slate-500 dark:text-zinc-450 px-2 py-2">
+                            Nenhuma resposta rápida encontrada para "/{cannedSearchQuery}"
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-3">
                       {!isRecording ? (
@@ -1800,7 +2016,7 @@ export default function AdminDashboard() {
                         <input
                           type="text"
                           value={newChatMessage}
-                          onChange={(e) => setNewChatMessage(e.target.value)}
+                          onChange={(e) => handleChatInputChange(e.target.value)}
                           placeholder={isInternalNote ? "Escreva uma nota interna privada..." : "Escreva uma resposta ao aluno..."}
                           className="flex-1 h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-medium bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 transition-colors dark:text-white"
                         />
@@ -1958,31 +2174,106 @@ export default function AdminDashboard() {
                       <p className="text-xs text-slate-450 dark:text-zinc-500 mt-1">Nenhum chamado aberto ou pendente precisando de atenção no momento.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                      {activeTickets.map(ticket => {
-                        const formattedDate = new Date(ticket.criado_em).toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        });
-                        
-                        return (
-                          <div
-                            key={ticket.id}
-                            onClick={() => {
-                              setSelectedTicketId(ticket.id);
-                              setSelectedTicket(ticket);
-                              setChatMessages([]);
-                              fetchChatMessages(ticket.id);
-                              setTicketView("chat");
-                              setShowDetails(false);
-                            }}
-                            className={`bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-500/20 cursor-pointer flex flex-col justify-between relative ${
-                              ticket.status === "em_andamento"
-                                ? "border-t-4 border-t-emerald-650"
-                                : "border-t-4 border-t-amber-500"
-                            }`}
+                    <>
+                      {/* Search and Filters Header */}
+                      <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-4.5 rounded-2xl shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center select-none">
+                        <div className="relative w-full md:w-80">
+                          <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400 dark:text-zinc-550" />
+                          <input
+                            type="text"
+                            placeholder="Buscar por ID, título, aluno ou descrição..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full h-10 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 text-xs font-semibold focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-colors dark:text-white"
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={() => setSearchQuery("")}
+                              className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-650 dark:text-zinc-550 dark:hover:text-white"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                          {/* Category Filter Selector */}
+                          <div className="flex flex-col gap-1 w-full sm:w-auto">
+                            <select
+                              value={filterCategory}
+                              onChange={(e) => setFilterCategory(e.target.value)}
+                              className="h-10 rounded-xl border border-slate-205 dark:border-zinc-850 bg-slate-50 dark:bg-zinc-950 px-3.5 text-xs font-bold text-slate-700 dark:text-zinc-300 focus:outline-none focus:border-emerald-500/40 cursor-pointer"
+                            >
+                              <option value="todas">Todas as Categorias</option>
+                              <option value="Acadêmico">Acadêmico</option>
+                              <option value="Financeiro / Secretaria">Financeiro / Secretaria</option>
+                              <option value="Infraestrutura">Infraestrutura</option>
+                              <option value="Acessos / TI">Acessos / TI</option>
+                              <option value="Outros">Outros</option>
+                            </select>
+                          </div>
+
+                          {/* Urgency Filter Selector */}
+                          <div className="flex flex-col gap-1 w-full sm:w-auto">
+                            <select
+                              value={filterPriority}
+                              onChange={(e) => setFilterPriority(e.target.value)}
+                              className="h-10 rounded-xl border border-slate-205 dark:border-zinc-850 bg-slate-50 dark:bg-zinc-950 px-3.5 text-xs font-bold text-slate-700 dark:text-zinc-300 focus:outline-none focus:border-emerald-500/40 cursor-pointer"
+                            >
+                              <option value="todas">Todas as Prioridades</option>
+                              <option value="normal">Normal</option>
+                              <option value="urgente">Urgência Solicitada</option>
+                            </select>
+                          </div>
+
+                          {/* Clear Filters Button */}
+                          {(searchQuery || filterCategory !== "todas" || filterPriority !== "todas") && (
+                            <button
+                              onClick={() => {
+                                setSearchQuery("");
+                                setFilterCategory("todas");
+                                setFilterPriority("todas");
+                              }}
+                              className="h-10 px-4 rounded-xl text-xs font-extrabold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-650 transition-colors uppercase tracking-wider cursor-pointer"
+                            >
+                              Limpar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {filteredActiveTickets.length === 0 ? (
+                        <div className="p-16 border border-dashed border-slate-250 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-center select-none animate-in fade-in">
+                          <Search className="h-12 w-12 text-slate-300 dark:text-zinc-700 mx-auto mb-4" />
+                          <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-200">Nenhum chamado encontrado</h3>
+                          <p className="text-xs text-slate-450 dark:text-zinc-500 mt-1">Nenhum chamado na fila corresponde aos critérios de busca ou filtros selecionados.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                          {filteredActiveTickets.map(ticket => {
+                            const formattedDate = new Date(ticket.criado_em).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            });
+                            
+                            return (
+                              <div
+                                key={ticket.id}
+                                onClick={() => {
+                                  setSelectedTicketId(ticket.id);
+                                  setSelectedTicket(ticket);
+                                  setChatMessages([]);
+                                  fetchChatMessages(ticket.id);
+                                  setTicketView("chat");
+                                  setShowDetails(false);
+                                }}
+                                className={`bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-500/20 cursor-pointer flex flex-col justify-between relative ${
+                                  ticket.status === "em_andamento"
+                                    ? "border-t-4 border-t-emerald-650"
+                                    : "border-t-4 border-t-amber-500"
+                                }`}
                           >
                             <div className="flex gap-4 items-start">
                               <div className="h-11 w-11 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center text-red-500 dark:text-red-400 shrink-0 mt-0.5">
@@ -2065,6 +2356,8 @@ export default function AdminDashboard() {
                       })}
                     </div>
                   )}
+                  </>
+                  )}
                 </div>
               )}
 
@@ -2086,13 +2379,14 @@ export default function AdminDashboard() {
                               <th className="p-4">Aluno</th>
                               <th className="p-4">Categoria</th>
                               <th className="p-4">Responsável</th>
+                              <th className="p-4">Avaliação</th>
                               <th className="p-4">Abertura</th>
                               <th className="p-4 pr-6 text-right">Ação</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-zinc-805 font-medium text-slate-700 dark:text-zinc-300">
+                          <tbody className="divide-y divide-slate-100 dark:divide-zinc-855 font-medium text-slate-700 dark:text-zinc-300">
                             {resolvedTickets.map(ticket => (
-                              <tr key={ticket.id} className="hover:bg-slate-55 dark:hover:bg-zinc-850/50 transition-colors">
+                              <tr key={ticket.id} className="hover:bg-slate-50 dark:hover:bg-zinc-850/50 transition-colors">
                                 <td className="p-4 pl-6 font-bold text-slate-400 dark:text-zinc-550">#{ticket.id}</td>
                                 <td className="p-4 font-bold text-slate-800 dark:text-white truncate max-w-[180px]" title={ticket.titulo || ""}>
                                   {ticket.titulo || ticket.categoria}
@@ -2104,6 +2398,16 @@ export default function AdminDashboard() {
                                   </span>
                                 </td>
                                 <td className="p-4 font-bold text-slate-500 dark:text-zinc-450">{ticket.admin_nome || "Nenhum"}</td>
+                                <td className="p-4">
+                                  {ticket.avaliacao_nota !== null && ticket.avaliacao_nota !== undefined ? (
+                                    <div className="flex items-center gap-1 text-amber-500" title={ticket.avaliacao_comentario || "Sem comentário"}>
+                                      <span className="text-amber-500">★</span>
+                                      <span className="font-extrabold text-[11px]">{ticket.avaliacao_nota}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-zinc-650 font-bold">-</span>
+                                  )}
+                                </td>
                                 <td className="p-4 text-slate-400 dark:text-zinc-500">
                                   {new Date(ticket.criado_em).toLocaleDateString("pt-BR")}
                                 </td>
@@ -2126,6 +2430,232 @@ export default function AdminDashboard() {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 1.5: GRÁFICOS E RELATÓRIOS */}
+              {activeTab === "relatorios" && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center select-none">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
+                      Métricas e Estatísticas do Sistema
+                    </h3>
+                    <button
+                      onClick={fetchMetricsData}
+                      disabled={isLoadingMetrics}
+                      className="bg-slate-100 dark:bg-zinc-800 hover:bg-slate-205 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-350 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      {isLoadingMetrics ? "Atualizando..." : "Atualizar Dados"}
+                    </button>
+                  </div>
+
+                  {isLoadingMetrics && !metricsData ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <Loader2 className="h-9 w-9 text-blue-650 animate-spin" />
+                      <span className="text-sm font-semibold text-slate-500">Compilando relatórios analíticos...</span>
+                    </div>
+                  ) : !metricsData ? (
+                    <div className="p-16 border border-dashed border-slate-250 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-center">
+                      <p className="text-xs text-slate-400">Nenhum dado de métrica disponível no momento.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Grid of Key Performance Indicators (KPIs) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        
+                        {/* KPI 1: SLA Tempo de Resposta */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
+                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resposta</span>
+                          <div className="mt-3 flex items-baseline gap-1">
+                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                              {metricsData.avgResponseTime < 60 
+                                ? `${metricsData.avgResponseTime}m`
+                                : `${Math.floor(metricsData.avgResponseTime / 60)}h ${metricsData.avgResponseTime % 60}m`
+                              }
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde a criação até o primeiro atendimento</span>
+                        </div>
+
+                        {/* KPI 2: Tempo de Resolução */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
+                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resolução</span>
+                          <div className="mt-3 flex items-baseline gap-1">
+                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                              {metricsData.avgResolutionTime < 60 
+                                ? `${metricsData.avgResolutionTime}m`
+                                : `${Math.floor(metricsData.avgResolutionTime / 60)}h ${metricsData.avgResolutionTime % 60}m`
+                              }
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde o início do atendimento até a conclusão</span>
+                        </div>
+
+                        {/* KPI 3: Satisfação Geral */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
+                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Satisfação Geral</span>
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                              {metricsData.satisfaction.avgRating > 0 ? metricsData.satisfaction.avgRating : "-"}
+                            </span>
+                            {metricsData.satisfaction.avgRating > 0 && (
+                              <div className="flex text-amber-500">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <svg
+                                    key={i}
+                                    className={`h-4.5 w-4.5 ${i < Math.round(metricsData.satisfaction.avgRating) ? "fill-current" : "text-slate-200 dark:text-zinc-800"}`}
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    fill="none"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                                  </svg>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Baseado em {metricsData.satisfaction.totalRatings} avaliações enviadas</span>
+                        </div>
+
+                        {/* KPI 4: Solicitações de Urgência */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
+                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Avisos de Urgência</span>
+                          <div className="mt-3 flex items-baseline gap-1">
+                            <span className="text-3xl font-black text-red-500 tracking-tight">
+                              {metricsData.urgencyStats.urgente}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-450 dark:text-zinc-500">solicitados</span>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Número de chamados que usaram "solicitar urgência"</span>
+                        </div>
+
+                      </div>
+
+                      {/* Charts Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none">
+                        
+                        {/* Chart 1: Volumetria por Categoria (Gráfico de Barras SVG) */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                          <div>
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Volumetria por Categoria</span>
+                            <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">Quantidade total de chamados abertos por setor</span>
+                          </div>
+
+                          <div className="mt-6 space-y-4">
+                            {metricsData.categoryStats.length === 0 ? (
+                              <div className="h-48 flex items-center justify-center text-xs text-slate-400 italic">Sem chamados registrados por categoria.</div>
+                            ) : (
+                              metricsData.categoryStats.map((item: any, i: number) => {
+                                const maxVal = Math.max(...metricsData.categoryStats.map((c: any) => c.total), 1);
+                                const pct = (item.total / maxVal) * 100;
+                                const barColors = [
+                                  "bg-[#0f62ac] dark:bg-blue-500",
+                                  "bg-emerald-600 dark:bg-emerald-500",
+                                  "bg-amber-500 dark:bg-amber-500",
+                                  "bg-rose-500 dark:bg-rose-500",
+                                  "bg-purple-650 dark:bg-purple-500"
+                                ];
+                                const colorClass = barColors[i % barColors.length];
+
+                                return (
+                                  <div key={item.categoria} className="space-y-1.5">
+                                    <div className="flex justify-between items-center text-[11px] font-bold">
+                                      <span className="text-slate-700 dark:text-zinc-350">{item.categoria}</span>
+                                      <span className="text-slate-800 dark:text-white font-black">{item.total} chamados</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 dark:bg-zinc-950 h-2.5 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-1000 ${colorClass}`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Chart 2: Distribuição de Status (Gráfico de Rosca/Doughnut SVG) */}
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+                          <div>
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block mb-1">Status dos Chamados</span>
+                            <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">Divisão percentual dos chamados no sistema</span>
+                          </div>
+
+                          <div className="mt-6 flex flex-col sm:flex-row items-center justify-around gap-6">
+                            {/* Doughnut SVG Drawing */}
+                            {(() => {
+                              const total = metricsData.statusStats.pendente + metricsData.statusStats.em_andamento + metricsData.statusStats.finalizado;
+                              if (total === 0) {
+                                return <div className="h-48 flex items-center justify-center text-xs text-slate-400 italic">Sem chamados cadastrados.</div>;
+                              }
+
+                              const pPct = (metricsData.statusStats.pendente / total) * 100;
+                              const ePct = (metricsData.statusStats.em_andamento / total) * 100;
+                              const fPct = (metricsData.statusStats.finalizado / total) * 100;
+
+                              const circ = 226.19;
+                              const pStroke = (pPct / 100) * circ;
+                              const eOffset = circ - pStroke;
+                              const eStroke = (ePct / 100) * circ;
+                              const fOffset = circ - pStroke - eStroke;
+                              const fStroke = (fPct / 100) * circ;
+
+                              return (
+                                <>
+                                  <div className="relative flex items-center justify-center shrink-0">
+                                    <svg className="w-36 h-36 transform -rotate-90">
+                                      <circle cx="72" cy="72" r="36" className="stroke-slate-100 dark:stroke-zinc-800" strokeWidth="16" fill="transparent" />
+                                      {pStroke > 0 && (
+                                        <circle cx="72" cy="72" r="36" className="stroke-amber-500" strokeWidth="16" strokeDasharray={`${pStroke} ${circ}`} strokeDashoffset={circ} fill="transparent" strokeLinecap="round" />
+                                      )}
+                                      {eStroke > 0 && (
+                                        <circle cx="72" cy="72" r="36" className="stroke-[#0f62ac] dark:stroke-blue-500" strokeWidth="16" strokeDasharray={`${eStroke} ${circ}`} strokeDashoffset={eOffset} fill="transparent" strokeLinecap="round" />
+                                      )}
+                                      {fStroke > 0 && (
+                                        <circle cx="72" cy="72" r="36" className="stroke-emerald-650 dark:stroke-emerald-500" strokeWidth="16" strokeDasharray={`${fStroke} ${circ}`} strokeDashoffset={fOffset} fill="transparent" strokeLinecap="round" />
+                                      )}
+                                    </svg>
+                                    <div className="absolute flex flex-col items-center justify-center text-center">
+                                      <span className="text-lg font-black text-slate-800 dark:text-white tracking-tight">{total}</span>
+                                      <span className="text-[7.5px] font-extrabold text-slate-455 dark:text-zinc-550 uppercase tracking-widest">Total</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex-1 space-y-3 w-full max-w-[200px]">
+                                    <div className="flex justify-between items-center text-xs font-bold">
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-3 w-3 rounded-full bg-amber-500 shrink-0" />
+                                        <span className="text-slate-655 dark:text-zinc-350">Abertos</span>
+                                      </div>
+                                      <span className="text-slate-850 dark:text-white font-black">{metricsData.statusStats.pendente} ({Math.round(pPct)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs font-bold">
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-3 w-3 rounded-full bg-[#0f62ac] dark:bg-blue-500 shrink-0" />
+                                        <span className="text-slate-655 dark:text-zinc-350">Em Atendimento</span>
+                                      </div>
+                                      <span className="text-slate-850 dark:text-white font-black">{metricsData.statusStats.em_andamento} ({Math.round(ePct)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs font-bold">
+                                      <div className="flex items-center gap-2">
+                                        <span className="h-3 w-3 rounded-full bg-emerald-650 dark:bg-emerald-500 shrink-0" />
+                                        <span className="text-slate-655 dark:text-zinc-350">Finalizados</span>
+                                      </div>
+                                      <span className="text-slate-850 dark:text-white font-black">{metricsData.statusStats.finalizado} ({Math.round(fPct)}%)</span>
+                                    </div>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   )}
@@ -2743,6 +3273,15 @@ export default function AdminDashboard() {
           }`}
         >
           <CheckCircle2 className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => { setActiveTab("relatorios"); setTicketView("list"); }}
+          className={`p-2.5 rounded-xl transition-all ${
+            activeTab === "relatorios" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
+          }`}
+          title="Gráficos e Métricas"
+        >
+          <BarChart3 className="h-5 w-5" />
         </button>
         <button
           onClick={() => { setActiveTab("usuarios"); setTicketView("list"); }}

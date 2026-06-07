@@ -105,13 +105,30 @@ export async function POST(
       return NextResponse.json({ erro: 'A mensagem ou anexo não pode ser vazio.' }, { status: 400 });
     }
 
-    await messageRepository.create({
+    const insertId = await messageRepository.create({
       ticket_id: ticketId,
       usuario_id: user.id,
       mensagem,
       tipo,
       arquivo_url
     });
+
+    try {
+      const { db } = await import('@/lib/db');
+      const [msgRows]: any = await db.execute(`
+        SELECT m.*, u.nome AS usuario_nome, u.is_admin AS usuario_is_admin 
+        FROM mensagens m
+        JOIN usuarios u ON m.usuario_id = u.id
+        WHERE m.id = ?
+      `, [insertId]);
+      
+      if (msgRows && msgRows[0]) {
+        const { serverEvents } = await import('@/lib/events');
+        serverEvents.emit(`message_new_${ticketId}`, msgRows[0]);
+      }
+    } catch (eventErr) {
+      console.error('Erro ao emitir evento de nova mensagem:', eventErr);
+    }
 
     const notificationRepository = (await import('@/lib/repositories/notificationRepository')).default;
     if (user.is_admin) {

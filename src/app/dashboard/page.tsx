@@ -65,6 +65,12 @@ export default function StudentDashboard() {
   const [selectedChatFile, setSelectedChatFile] = useState<File | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Ticket Feedback States
+  const [feedbackNota, setFeedbackNota] = useState(0);
+  const [feedbackHoverNota, setFeedbackHoverNota] = useState(0);
+  const [feedbackComentario, setFeedbackComentario] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
   // Audio recording state
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -141,13 +147,56 @@ export default function StudentDashboard() {
 
     const interval = setInterval(() => {
       fetchNotifications();
-      if (ticketView === "chat" && selectedTicketId) {
-        fetchChatMessages(selectedTicketId);
-      }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [isLoadingAuth, activeTab, ticketView, selectedTicketId]);
+
+  // SSE connection for real-time chat
+  useEffect(() => {
+    if (ticketView !== "chat" || !selectedTicketId) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const eventSource = new EventSource(`/api/tickets/${selectedTicketId}/stream?token=${encodeURIComponent(token)}`);
+
+    eventSource.addEventListener("message_new", (event) => {
+      try {
+        const newMessage = JSON.parse(event.data);
+        setChatMessages((prev) => {
+          if (prev.some((m) => m.id === newMessage.id)) {
+            return prev;
+          }
+          return [...prev, newMessage];
+        });
+      } catch (err) {
+        console.error("Erro ao analisar nova mensagem SSE:", err);
+      }
+    });
+
+    eventSource.addEventListener("status_update", (event) => {
+      try {
+        const updatedTicket = JSON.parse(event.data);
+        setSelectedTicket(updatedTicket);
+        
+        // Update this ticket in myTickets list
+        setMyTickets((prev) =>
+          prev.map((t) => (t.id === updatedTicket.id ? updatedTicket : t))
+        );
+      } catch (err) {
+        console.error("Erro ao analisar atualização de status SSE:", err);
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      console.warn("Conexão SSE encontrou um erro. Fechando/reconectando...", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [ticketView, selectedTicketId]);
 
   // Update SLA/Elapsed countdown
   useEffect(() => {
@@ -426,6 +475,52 @@ export default function StudentDashboard() {
     } catch (err) {
       console.error(err);
       toast.error("Erro de conexão.");
+    }
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicketId || feedbackNota === 0) {
+      toast.error("Por favor, selecione uma nota de 1 a 5 estrelas.");
+      return;
+    }
+
+    setIsSubmittingFeedback(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/tickets/${selectedTicketId}/feedback`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          nota: feedbackNota,
+          comentario: feedbackComentario.trim() || null
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Obrigado pelo seu feedback!");
+        const updated = { 
+          ...selectedTicket!, 
+          avaliacao_nota: feedbackNota, 
+          avaliacao_comentario: feedbackComentario.trim() || null 
+        };
+        setSelectedTicket(updated);
+        setMyTickets(prev => prev.map(t => t.id === selectedTicketId ? updated : t));
+        // Reset states
+        setFeedbackNota(0);
+        setFeedbackComentario("");
+      } else {
+        const data = await res.json();
+        toast.error(data.erro || "Erro ao salvar avaliação.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro de conexão.");
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -1929,92 +2024,176 @@ export default function StudentDashboard() {
                       </div>
                     )}
 
-                    {/* Chat Form Input */}
-                    <form onSubmit={handleSendChatMessage} className="p-4.5 bg-white dark:bg-zinc-900 border-t border-slate-150 dark:border-zinc-800 shrink-0">
-                      <input
-                        type="file"
-                        ref={chatFileInputRef}
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files.length > 0) {
-                            setSelectedChatFile(e.target.files[0]);
-                          }
-                        }}
-                        accept="image/*"
-                        className="hidden"
-                      />
-
-                      <div className="flex items-center gap-3">
-                        {!isRecording ? (
-                          <button
-                            type="button"
-                            onClick={() => chatFileInputRef.current?.click()}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
-                            title="Anexar Imagem"
-                          >
-                            <Paperclip className="h-4.5 w-4.5" />
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={cancelRecording}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0"
-                            title="Cancelar Gravação"
-                          >
-                            <Trash2 className="h-4.5 w-4.5" />
-                          </button>
-                        )}
-
-                        {!isRecording ? (
-                          <input
-                            type="text"
-                            value={newChatMessage}
-                            onChange={(e) => setNewChatMessage(e.target.value)}
-                            placeholder={`Escreva uma resposta para o suporte...`}
-                            disabled={selectedTicket.status === "finalizado"}
-                            className="flex-1 h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-medium bg-slate-50 dark:bg-zinc-955 dark:text-white focus:bg-white focus:outline-none focus:border-[#0f62ac]/40 transition-colors disabled:opacity-50"
-                          />
-                        ) : (
-                          <div className="flex-1 h-10 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl px-4 flex items-center justify-between gap-4">
-                            <span className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-wider">Microfone Ativo • Gravando Áudio</span>
-                            <span className="text-xs font-bold text-red-500 font-mono">
-                              {formatTimer(recordingSeconds)}
-                            </span>
+                    {/* Chat Form Input or Feedback Forms */}
+                    {selectedTicket.status === "finalizado" ? (
+                      selectedTicket.avaliacao_nota !== null ? (
+                        /* Completed Evaluation Card */
+                        <div className="p-5 bg-white dark:bg-zinc-900 border-t border-slate-150 dark:border-zinc-800 shrink-0 flex flex-col items-center justify-center text-center gap-2 select-none">
+                          <div className="flex items-center gap-1.5 text-amber-500">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <svg
+                                key={i}
+                                className={`h-5 w-5 ${i < (selectedTicket.avaliacao_nota || 0) ? "fill-current text-amber-500" : "text-slate-300 dark:text-zinc-700"}`}
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill="none"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                              </svg>
+                            ))}
                           </div>
-                        )}
+                          <h4 className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider">Você avaliou este chamado</h4>
+                          {selectedTicket.avaliacao_comentario && (
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 italic max-w-md bg-slate-50 dark:bg-zinc-950 px-4 py-2 rounded-xl border border-slate-100 dark:border-zinc-800 leading-relaxed">
+                              "{selectedTicket.avaliacao_comentario}"
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        /* Rating Submission Form */
+                        <form onSubmit={handleSubmitFeedback} className="p-5 bg-white dark:bg-zinc-900 border-t border-slate-150 dark:border-zinc-800 shrink-0 flex flex-col gap-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="text-[10px] font-extrabold text-[#0f62ac] dark:text-emerald-450 uppercase tracking-wider">Chamado Finalizado</span>
+                            <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider text-center">Como você avalia o atendimento recebido?</h4>
+                            
+                            {/* 5-Star Interactive Selector */}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {Array.from({ length: 5 }).map((_, idx) => {
+                                const starValue = idx + 1;
+                                const isFilled = starValue <= (feedbackHoverNota || feedbackNota);
+                                return (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setFeedbackNota(starValue)}
+                                    onMouseEnter={() => setFeedbackHoverNota(starValue)}
+                                    onMouseLeave={() => setFeedbackHoverNota(0)}
+                                    className="text-amber-400 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+                                  >
+                                    <svg
+                                      className={`h-7 w-7 ${isFilled ? "fill-current text-amber-500" : "text-slate-350 dark:text-zinc-700"}`}
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      fill="none"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                                    </svg>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
 
-                        {selectedTicket.status !== "finalizado" && (
-                          <>
-                            {!isRecording && !newChatMessage.trim() && !selectedChatFile && !recordedAudioBlob ? (
-                              <button
-                                type="button"
-                                onClick={startRecording}
-                                className="h-10 w-10 flex items-center justify-center rounded-xl bg-[#0f62ac] text-white hover:bg-[#0d5494] transition-colors shrink-0 cursor-pointer"
-                                title="Gravar Áudio"
-                              >
-                                <Mic className="h-4.5 w-4.5" />
-                              </button>
-                            ) : isRecording ? (
-                              <button
-                                type="button"
-                                onClick={stopRecording}
-                                className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors shrink-0 cursor-pointer"
-                                title="Parar e Usar"
-                              >
-                                <Square className="h-4 w-4 fill-current" />
-                              </button>
-                            ) : (
-                              <button
-                                type="submit"
-                                className="h-10 w-10 flex items-center justify-center rounded-xl bg-[#0f62ac] text-white hover:bg-[#0d5494] active:scale-95 transition-all shrink-0 cursor-pointer"
-                                title="Enviar"
-                              >
-                                <Send className="h-4 w-4 ml-0.5" />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </form>
+                          <div className="flex flex-col gap-2">
+                            <textarea
+                              value={feedbackComentario}
+                              onChange={(e) => setFeedbackComentario(e.target.value)}
+                              placeholder="Deixe um comentário sobre a resolução do chamado (opcional)..."
+                              className="w-full min-h-[60px] max-h-[120px] border border-slate-205 dark:border-zinc-800 rounded-xl p-3 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 dark:text-white focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-[#0f62ac]/40 transition-colors"
+                            />
+                            
+                            <button
+                              type="submit"
+                              disabled={isSubmittingFeedback || feedbackNota === 0}
+                              className="w-full h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-zinc-800 text-white disabled:text-slate-400 font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
+                            >
+                              {isSubmittingFeedback ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Enviando Avaliação...
+                                </>
+                              ) : (
+                                "Enviar Avaliação"
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      )
+                    ) : (
+                      /* Chat Form Input */
+                      <form onSubmit={handleSendChatMessage} className="p-4.5 bg-white dark:bg-zinc-900 border-t border-slate-150 dark:border-zinc-800 shrink-0">
+                        <input
+                          type="file"
+                          ref={chatFileInputRef}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              setSelectedChatFile(e.target.files[0]);
+                            }
+                          }}
+                          accept="image/*"
+                          className="hidden"
+                        />
+
+                        <div className="flex items-center gap-3">
+                          {!isRecording ? (
+                            <button
+                              type="button"
+                              onClick={() => chatFileInputRef.current?.click()}
+                              className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
+                              title="Anexar Imagem"
+                            >
+                              <Paperclip className="h-4.5 w-4.5" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={cancelRecording}
+                              className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0"
+                              title="Cancelar Gravação"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                            </button>
+                          )}
+
+                          {!isRecording ? (
+                            <input
+                              type="text"
+                              value={newChatMessage}
+                              onChange={(e) => setNewChatMessage(e.target.value)}
+                              placeholder={`Escreva uma resposta para o suporte...`}
+                              className="flex-1 h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-medium bg-slate-50 dark:bg-zinc-955 dark:text-white focus:bg-white focus:outline-none focus:border-[#0f62ac]/40 transition-colors disabled:opacity-50"
+                            />
+                          ) : (
+                            <div className="flex-1 h-10 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl px-4 flex items-center justify-between gap-4">
+                              <span className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-wider">Microfone Ativo • Gravando Áudio</span>
+                              <span className="text-xs font-bold text-red-500 font-mono">
+                                {formatTimer(recordingSeconds)}
+                              </span>
+                            </div>
+                          )}
+
+                          {!isRecording && !newChatMessage.trim() && !selectedChatFile && !recordedAudioBlob ? (
+                            <button
+                              type="button"
+                              onClick={startRecording}
+                              className="h-10 w-10 flex items-center justify-center rounded-xl bg-[#0f62ac] text-white hover:bg-[#0d5494] transition-colors shrink-0 cursor-pointer"
+                              title="Gravar Áudio"
+                            >
+                              <Mic className="h-4.5 w-4.5" />
+                            </button>
+                          ) : isRecording ? (
+                            <button
+                              type="button"
+                              onClick={stopRecording}
+                              className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors shrink-0 cursor-pointer"
+                              title="Parar e Usar"
+                            >
+                              <Square className="h-4 w-4 fill-current" />
+                            </button>
+                          ) : (
+                            <button
+                              type="submit"
+                              className="h-10 w-10 flex items-center justify-center rounded-xl bg-[#0f62ac] text-white hover:bg-[#0d5494] active:scale-95 transition-all shrink-0 cursor-pointer"
+                              title="Enviar"
+                            >
+                              <Send className="h-4 w-4 ml-0.5" />
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    )}
                   </div>
 
                   {/* Column 3: SLA Countdown Ring & Actions Panel (Right) */}

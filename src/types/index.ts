@@ -28,6 +28,8 @@ export interface Ticket {
   atendido_em?: string | Date | null;
   finalizado_em?: string | Date | null;
   db_time?: string | Date | null;
+  avaliacao_nota?: number | null;
+  avaliacao_comentario?: string | null;
 }
 
 export interface Message {
