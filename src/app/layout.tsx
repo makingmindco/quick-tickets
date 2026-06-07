@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Manrope, Outfit, Poppins } from "next/font/google";
+import { Inter, Manrope, Outfit, Poppins, Raleway } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -24,6 +24,12 @@ const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
+const raleway = Raleway({
+  variable: "--font-raleway",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+});
+
 export const metadata: Metadata = {
   title: "QuickTickets - Central de Ajuda",
   description: "Gerenciamento inteligente de chamados de suporte acadêmico e administrativo.",
@@ -37,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${inter.variable} ${manrope.variable} ${outfit.variable} ${poppins.variable} h-full antialiased`}
+      className={`${inter.variable} ${manrope.variable} ${outfit.variable} ${poppins.variable} ${raleway.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-slate-50 dark:bg-black">
         {children}
