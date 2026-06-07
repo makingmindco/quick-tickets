@@ -33,6 +33,8 @@ import { toast } from "sonner";
 import { User, Ticket, Aviso, Message } from "@/types";
 import { CustomAudioPlayer } from "@/components/custom-audio-player";
 
+let dbClockOffset = 0;
+
 export default function StudentDashboard() {
   const router = useRouter();
 
@@ -161,7 +163,7 @@ export default function StudentDashboard() {
       
       const end = selectedTicket.status === "finalizado" && selectedTicket.finalizado_em
         ? new Date(selectedTicket.finalizado_em).getTime()
-        : new Date().getTime();
+        : new Date().getTime() + dbClockOffset;
       
       const diff = end - start;
 
@@ -245,11 +247,32 @@ export default function StudentDashboard() {
     }
   }, [chatMessages]);
 
+  const syncClockOffset = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/time", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.db_time) {
+          const dbTime = new Date(data.db_time).getTime();
+          const localTime = new Date().getTime();
+          dbClockOffset = dbTime - localTime;
+        }
+      }
+    } catch (e) {
+      console.error("Error syncing clock offset:", e);
+    }
+  };
+
   const loadDashboardData = async () => {
     setIsLoadingData(true);
     try {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
+
+      await syncClockOffset();
 
       // Load my tickets
       const ticketsRes = await fetch("/api/tickets", { headers });
@@ -356,7 +379,7 @@ export default function StudentDashboard() {
         toast.success(`Chamado #${ticketId} encerrado com sucesso.`);
         loadDashboardData();
         if (ticketView === "chat" && selectedTicketId === ticketId) {
-          const updated = { ...selectedTicket!, status: "finalizado" as const, finalizado_em: new Date().toISOString() };
+          const updated = { ...selectedTicket!, status: "finalizado" as const, finalizado_em: new Date(new Date().getTime() + dbClockOffset).toISOString() };
           setSelectedTicket(updated);
         }
       } else {

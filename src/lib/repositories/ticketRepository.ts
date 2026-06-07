@@ -19,6 +19,7 @@ export interface TicketDB extends RowDataPacket {
   urgencia_solicitada?: number;
   atendido_em?: Date | string | null;
   finalizado_em?: Date | string | null;
+  db_time?: Date | string | null;
 }
 
 class TicketRepository {
@@ -57,7 +58,7 @@ class TicketRepository {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
              t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
-             c.nome AS categoria 
+             c.nome AS categoria, NOW() as db_time 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
       WHERE t.usuario_id = ?
@@ -91,7 +92,7 @@ class TicketRepository {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.prazo, t.criado_em, 
              t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
-             c.nome AS categoria, u.nome AS cliente 
+             c.nome AS categoria, u.nome AS cliente, NOW() as db_time 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
       JOIN usuarios u ON t.usuario_id = u.id
@@ -141,7 +142,7 @@ class TicketRepository {
     const sql = `
       SELECT t.id, t.titulo, t.descricao, t.status, t.criado_em, 
              t.urgencia_solicitada, t.atendido_em, t.finalizado_em,
-             c.nome AS categoria, u.nome AS cliente, a.nome AS admin_nome 
+             c.nome AS categoria, u.nome AS cliente, a.nome AS admin_nome, NOW() as db_time 
       FROM tickets t
       JOIN categorias c ON t.categoria_id = c.id
       JOIN usuarios u ON t.usuario_id = u.id
@@ -178,7 +179,7 @@ class TicketRepository {
 
   async findById(id: number): Promise<TicketDB | undefined> {
     const sql = `
-      SELECT t.*, u.nome AS cliente_nome, u.email AS cliente_email, c.nome AS categoria
+      SELECT t.*, u.nome AS cliente_nome, u.email AS cliente_email, c.nome AS categoria, NOW() as db_time
       FROM tickets t
       JOIN usuarios u ON t.usuario_id = u.id
       JOIN categorias c ON t.categoria_id = c.id

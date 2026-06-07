@@ -41,6 +41,8 @@ import { toast } from "sonner";
 import { User, Ticket, Aviso, Message } from "@/types";
 import { CustomAudioPlayer } from "@/components/custom-audio-player";
 
+let dbClockOffset = 0;
+
 export default function AdminDashboard() {
   const router = useRouter();
 
@@ -241,7 +243,7 @@ export default function AdminDashboard() {
       
       const end = selectedTicket.status === "finalizado" && selectedTicket.finalizado_em
         ? new Date(selectedTicket.finalizado_em).getTime()
-        : new Date().getTime();
+        : new Date().getTime() + dbClockOffset;
       
       const diff = end - start;
 
@@ -325,11 +327,32 @@ export default function AdminDashboard() {
     }
   }, [chatMessages]);
 
+  const syncClockOffset = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/time", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.db_time) {
+          const dbTime = new Date(data.db_time).getTime();
+          const localTime = new Date().getTime();
+          dbClockOffset = dbTime - localTime;
+        }
+      }
+    } catch (e) {
+      console.error("Error syncing clock offset:", e);
+    }
+  };
+
   const loadData = async () => {
     setIsLoadingData(true);
     try {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
+
+      await syncClockOffset();
 
       // Load Statistics
       const statsRes = await fetch("/api/admin/dashboard", { headers });
@@ -342,6 +365,11 @@ export default function AdminDashboard() {
         const res = await fetch("/api/admin/tickets", { headers });
         if (res.ok) {
           const data: Ticket[] = await res.json();
+          if (data.length > 0 && data[0].db_time) {
+            const dbTime = new Date(data[0].db_time).getTime();
+            const localTime = new Date().getTime();
+            dbClockOffset = dbTime - localTime;
+          }
           setActiveTickets(data);
 
           // If currently viewing a ticket, sync its state
@@ -354,6 +382,11 @@ export default function AdminDashboard() {
         const res = await fetch("/api/admin/tickets/finalizados", { headers });
         if (res.ok) {
           const data: Ticket[] = await res.json();
+          if (data.length > 0 && data[0].db_time) {
+            const dbTime = new Date(data[0].db_time).getTime();
+            const localTime = new Date().getTime();
+            dbClockOffset = dbTime - localTime;
+          }
           setResolvedTickets(data);
           
           if (selectedTicketId) {
@@ -471,7 +504,7 @@ export default function AdminDashboard() {
         toast.success(`Você assumiu o chamado #${ticket.id}!`);
         loadData();
         if (ticketView === "chat" && selectedTicketId === ticket.id) {
-          const updated = { ...selectedTicket!, status: "em_andamento" as const, admin_id: currentUser?.id || null, atendido_em: selectedTicket?.atendido_em || new Date().toISOString() };
+          const updated = { ...selectedTicket!, status: "em_andamento" as const, admin_id: currentUser?.id || null, atendido_em: selectedTicket?.atendido_em || new Date(new Date().getTime() + dbClockOffset).toISOString() };
           setSelectedTicket(updated);
         }
       } else {
@@ -529,8 +562,8 @@ export default function AdminDashboard() {
             ...selectedTicket!, 
             status: ticketStatus, 
             prazo: ticketPrazo ? new Date(ticketPrazo).toISOString() : null,
-            atendido_em: ticketStatus === "em_andamento" || ticketStatus === "finalizado" ? (selectedTicket?.atendido_em || new Date().toISOString()) : null,
-            finalizado_em: ticketStatus === "finalizado" ? (selectedTicket?.finalizado_em || new Date().toISOString()) : null
+            atendido_em: ticketStatus === "em_andamento" || ticketStatus === "finalizado" ? (selectedTicket?.atendido_em || new Date(new Date().getTime() + dbClockOffset).toISOString()) : null,
+            finalizado_em: ticketStatus === "finalizado" ? (selectedTicket?.finalizado_em || new Date(new Date().getTime() + dbClockOffset).toISOString()) : null
           };
           setSelectedTicket(updated);
         }
@@ -572,8 +605,8 @@ export default function AdminDashboard() {
             ...selectedTicket!, 
             status: "finalizado" as const, 
             prazo: null, 
-            finalizado_em: new Date().toISOString(), 
-            atendido_em: selectedTicket?.atendido_em || new Date().toISOString() 
+            finalizado_em: new Date(new Date().getTime() + dbClockOffset).toISOString(), 
+            atendido_em: selectedTicket?.atendido_em || new Date(new Date().getTime() + dbClockOffset).toISOString() 
           };
           setSelectedTicket(updated);
         }
@@ -1158,11 +1191,11 @@ export default function AdminDashboard() {
         )}
 
         {/* Top Header Bar */}
-        <header className="h-20 bg-white border-b border-slate-150 flex items-center justify-between px-6 md:px-8 shrink-0 relative z-30">
+        <header className="h-20 bg-white dark:bg-zinc-900 border-b border-slate-150 dark:border-zinc-800/80 flex items-center justify-between px-6 md:px-8 shrink-0 relative z-30">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/assets/logo.png" alt="QuickTickets Logo" className="md:hidden h-8 w-auto object-contain" />
-            <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight select-none">
+            <h1 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tight select-none">
               {activeTab === "fila" && (ticketView === "chat" ? "Conversa / Detalhes" : "Fila de Atendimento")}
               {activeTab === "resolvidos" && (ticketView === "chat" ? "Histórico de Conversa" : "Chamados Resolvidos")}
               {activeTab === "usuarios" && "Gerenciar Usuários"}
@@ -1173,7 +1206,7 @@ export default function AdminDashboard() {
 
           <div className="flex items-center gap-5">
             {/* Quick Metrics display */}
-            <div className="hidden lg:flex items-center gap-3 text-xs font-bold text-slate-500 border-r border-slate-150 pr-5 select-none">
+            <div className="hidden lg:flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-zinc-400 border-r border-slate-150 dark:border-zinc-800 pr-5 select-none">
               <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-amber-500" /> {statusStats.pendente} pendentes</span>
               <span className="flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 text-primary-corp animate-spin" /> {statusStats.em_andamento} em atendimento</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> {statusStats.finalizado} resolvidos</span>
@@ -1183,7 +1216,7 @@ export default function AdminDashboard() {
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="text-slate-500 hover:text-slate-800 transition-colors h-10 w-10 rounded-xl hover:bg-slate-100 flex items-center justify-center relative cursor-pointer"
+                className="text-slate-500 hover:text-slate-800 dark:text-zinc-450 dark:hover:text-white transition-colors h-10 w-10 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-850 flex items-center justify-center relative cursor-pointer"
               >
                 <Bell className="h-5 w-5" />
                 {unreadNotificationsCount > 0 && (
@@ -1197,9 +1230,9 @@ export default function AdminDashboard() {
               {showNotifications && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                  <div className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-white rounded-2xl border border-slate-150 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-3 duration-200">
-                    <div className="px-4.5 py-3.5 border-b border-slate-150 flex items-center justify-between bg-slate-50 select-none">
-                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">Notificações</span>
+                  <div className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-150 dark:border-zinc-800 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-3 duration-200">
+                    <div className="px-4.5 py-3.5 border-b border-slate-150 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950 select-none">
+                      <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide">Notificações</span>
                       <button
                         onClick={markAllNotificationsRead}
                         className="text-[11px] font-bold text-[#00afef] hover:underline cursor-pointer"
@@ -1208,7 +1241,7 @@ export default function AdminDashboard() {
                       </button>
                     </div>
                     
-                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800">
                       {notifications.length === 0 ? (
                         <div className="p-6 text-center text-xs font-semibold text-slate-400">
                           Nenhuma notificação no momento.
@@ -1225,35 +1258,35 @@ export default function AdminDashboard() {
                               }
                             }}
                             className={`p-4 transition-colors flex gap-3 cursor-pointer ${
-                              !notif.lida ? "bg-blue-50/50 hover:bg-blue-50" : "hover:bg-slate-55"
+                              !notif.lida ? "bg-blue-50/50 dark:bg-[#0f62ac]/10 hover:bg-blue-50 dark:hover:bg-[#0f62ac]/20" : "hover:bg-slate-55 dark:hover:bg-zinc-850/50"
                             }`}
                           >
                             <div className="shrink-0 mt-0.5">
                               {notif.tipo === "system" || notif.tipo === "patch" ? (
-                                <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-500 flex items-center justify-center">
+                                <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 text-indigo-500 dark:text-indigo-400 flex items-center justify-center">
                                   <Wrench className="h-4 w-4" />
                                 </div>
                               ) : notif.tipo === "mensagem" ? (
-                                <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-100 text-blue-500 flex items-center justify-center">
+                                <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 text-blue-500 dark:text-blue-400 flex items-center justify-center">
                                   <Inbox className="h-4 w-4" />
                                 </div>
                               ) : (
-                                <div className="h-8 w-8 rounded-lg bg-amber-50 border border-amber-100 text-amber-500 flex items-center justify-center">
+                                <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-amber-500 dark:text-amber-400 flex items-center justify-center">
                                   <Bell className="h-4 w-4" />
                                 </div>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start gap-1">
-                                <h5 className={`text-xs font-extrabold truncate ${!notif.lida ? "text-[#0f62ac]" : "text-slate-700"}`}>
+                                <h5 className={`text-xs font-extrabold truncate ${!notif.lida ? "text-[#0f62ac] dark:text-[#00afef]" : "text-slate-700 dark:text-zinc-350"}`}>
                                   {notif.titulo}
                                 </h5>
                                 {!notif.lida && <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0 mt-1" />}
                               </div>
-                              <p className="text-[11px] text-slate-550 mt-0.5 line-clamp-2 leading-relaxed font-medium">
+                              <p className="text-[11px] text-slate-550 dark:text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed font-medium">
                                 {notif.mensagem}
                               </p>
-                              <span className="text-[9px] text-slate-400 font-bold block mt-1.5">
+                              <span className="text-[9px] text-slate-400 dark:text-zinc-550 font-bold block mt-1.5">
                                 {new Date(notif.criado_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             </div>
@@ -1272,16 +1305,16 @@ export default function AdminDashboard() {
                 <img
                   src={currentUser.foto_url}
                   alt="Avatar"
-                  className="h-9 w-9 rounded-xl object-cover shadow-sm border border-slate-200"
+                  className="h-9 w-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-zinc-800"
                 />
               ) : (
-                <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-extrabold text-xs shadow-sm">
+                <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 flex items-center justify-center font-extrabold text-xs shadow-sm">
                   {avatarInitials}
                 </div>
               )}
               <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-800 truncate max-w-[130px]">{currentUser?.nome}</span>
-                <span className="text-[9px] uppercase font-bold text-slate-400">{currentUser?.cargo || "Administrador"}</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-white truncate max-w-[130px]">{currentUser?.nome}</span>
+                <span className="text-[9px] uppercase font-bold text-slate-400 dark:text-zinc-550">{currentUser?.cargo || "Administrador"}</span>
               </div>
             </div>
           </div>
@@ -1306,7 +1339,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between xl:block shrink-0">
                   <button
                     onClick={() => setTicketView("list")}
-                    className="flex items-center gap-2 text-xs font-bold text-slate-455 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                    className="flex items-center gap-2 text-xs font-bold text-slate-455 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <ArrowLeft className="h-4 w-4" />
                     Voltar para Fila
@@ -1321,39 +1354,39 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <hr className="border-slate-100" />
+                <hr className="border-slate-100 dark:border-zinc-800" />
 
                 <div className="space-y-3.5">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">SOLICITANTE</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block">SOLICITANTE</span>
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-750 border border-emerald-100 flex items-center justify-center font-extrabold text-sm shadow-sm shrink-0">
+                    <div className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-750 dark:text-emerald-450 border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-center font-extrabold text-sm shadow-sm shrink-0">
                       {getInitials(selectedTicket.cliente_nome || selectedTicket.cliente)}
                     </div>
                     <div className="min-w-0">
-                      <h4 className="text-xs font-extrabold text-slate-800 truncate">{selectedTicket.cliente_nome || selectedTicket.cliente || "Aluno"}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">ID: #{selectedTicket.usuario_id}</p>
+                      <h4 className="text-xs font-extrabold text-slate-800 dark:text-white truncate">{selectedTicket.cliente_nome || selectedTicket.cliente || "Aluno"}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-550 mt-0.5 uppercase tracking-wide">ID: #{selectedTicket.usuario_id}</p>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 text-xs text-slate-650 bg-slate-50 border border-slate-100 p-3 rounded-xl">
-                    <p><span className="font-bold text-slate-400 uppercase text-[9px] mr-1.5">Cargo:</span> {selectedTicket.cliente || "Estudante"}</p>
-                    <p className="truncate" title={selectedTicket.cliente_email || ""}><span className="font-bold text-slate-400 uppercase text-[9px] mr-1.5">E-mail:</span> {selectedTicket.cliente_email || "N/D"}</p>
+                  <div className="space-y-1.5 text-xs text-slate-650 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950/30 border border-slate-100 dark:border-zinc-800 p-3 rounded-xl">
+                    <p><span className="font-bold text-slate-400 dark:text-zinc-500 uppercase text-[9px] mr-1.5">Cargo:</span> {selectedTicket.cliente || "Estudante"}</p>
+                    <p className="truncate" title={selectedTicket.cliente_email || ""}><span className="font-bold text-slate-400 dark:text-zinc-500 uppercase text-[9px] mr-1.5">E-mail:</span> {selectedTicket.cliente_email || "N/D"}</p>
                   </div>
                 </div>
 
-                <hr className="border-slate-100" />
+                <hr className="border-slate-100 dark:border-zinc-800" />
 
                 <div className="space-y-3">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">PRIORIDADE & STATUS</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">PRIORIDADE & STATUS</span>
                   
                   <div className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${
                     selectedTicket.status === "finalizado"
-                      ? "bg-slate-100 text-slate-600"
+                      ? "bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400"
                       : selectedTicket.id % 3 === 0
-                      ? "bg-red-50 text-red-650 border border-red-100"
+                      ? "bg-red-50 dark:bg-red-950/20 text-red-650 dark:text-red-400 border border-red-100 dark:border-red-900/35"
                       : selectedTicket.id % 3 === 1
-                      ? "bg-amber-50 text-amber-650 border border-amber-100"
-                      : "bg-blue-50 text-blue-650 border border-blue-100"
+                      ? "bg-amber-50 dark:bg-amber-950/20 text-amber-655 dark:text-amber-400 border border-amber-100 dark:border-amber-900/35"
+                      : "bg-blue-50 dark:bg-blue-950/20 text-blue-655 dark:text-blue-400 border border-blue-100 dark:border-blue-900/35"
                   }`}>
                     <span className={`h-2 w-2 rounded-full ${
                       selectedTicket.status === "finalizado"
@@ -1377,34 +1410,34 @@ export default function AdminDashboard() {
 
                   <div className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border ${
                     selectedTicket.status === "pendente"
-                      ? "bg-amber-50/50 text-amber-600 border-amber-200"
+                      ? "bg-amber-50/50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/30"
                       : selectedTicket.status === "em_andamento"
-                      ? "bg-blue-50/50 text-blue-600 border-blue-200"
-                      : "bg-emerald-50/50 text-emerald-600 border-emerald-200"
+                      ? "bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/30"
+                      : "bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30"
                   }`}>
                     <span>Status:</span>
                     <span className="font-extrabold uppercase">{selectedTicket.status === "em_andamento" ? "Em Andamento" : selectedTicket.status}</span>
                   </div>
                 </div>
 
-                <hr className="border-slate-100" />
+                <hr className="border-slate-100 dark:border-zinc-800" />
 
                 <div className="space-y-2.5">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">CONTEXTO ACADÊMICO</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block">CONTEXTO ACADÊMICO</span>
                   <div className="flex flex-wrap gap-1.5">
-                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold">1º Semestre</span>
-                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold">{selectedTicket.categoria}</span>
-                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold">ID-{selectedTicket.id}</span>
+                    <span className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2.5 py-1 rounded-lg text-[10px] font-bold font-sans">1º Semestre</span>
+                    <span className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2.5 py-1 rounded-lg text-[10px] font-bold font-sans">{selectedTicket.categoria}</span>
+                    <span className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 px-2.5 py-1 rounded-lg text-[10px] font-bold font-sans">ID-{selectedTicket.id}</span>
                   </div>
                 </div>
 
-                <hr className="border-slate-100" />
+                <hr className="border-slate-100 dark:border-zinc-800" />
 
                 <div className="space-y-2.5">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">ARQUIVOS ANEXADOS</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">ARQUIVOS ANEXADOS</span>
                   
                   {chatMessages.filter(m => m.arquivo_url).length === 0 ? (
-                    <p className="text-[10px] text-slate-400 font-semibold italic">Nenhum anexo neste chamado.</p>
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold italic">Nenhum anexo neste chamado.</p>
                   ) : (
                     <div className="space-y-2">
                       {chatMessages.filter(m => m.arquivo_url).map((msg) => {
@@ -1417,12 +1450,12 @@ export default function AdminDashboard() {
                             href={msg.arquivo_url!}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-2.5 bg-slate-50 border border-slate-150 hover:bg-slate-100 p-2 rounded-xl transition-all cursor-pointer"
+                            className="flex items-center gap-2.5 bg-slate-50 dark:bg-zinc-950/30 border border-slate-150 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800 p-2 rounded-xl transition-all cursor-pointer"
                           >
                             <FileText className="h-4.5 w-4.5 text-[#10b981]" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-bold text-slate-700 truncate">{fileName}</p>
-                              <p className="text-[9px] font-bold text-slate-400 mt-0.5">Anexado em {formattedTime}</p>
+                              <p className="text-[10px] font-bold text-slate-700 dark:text-zinc-300 truncate">{fileName}</p>
+                              <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 mt-0.5">Anexado em {formattedTime}</p>
                             </div>
                           </a>
                         );
@@ -1432,10 +1465,10 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Mobile-only sections from Column 3 */}
-                <div className="xl:hidden space-y-6 pt-4 border-t border-slate-100">
+                <div className="xl:hidden space-y-6 pt-4 border-t border-slate-100 dark:border-zinc-800">
                   {/* circular SLA counter */}
                   <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">
-                    <span className="text-[9px] font-extrabold text-slate-355 tracking-wider uppercase">TEMPO EM ABERTO</span>
+                    <span className="text-[9px] font-extrabold text-slate-355 dark:text-zinc-400 tracking-wider uppercase">TEMPO EM ABERTO</span>
                     
                     <div className="relative flex items-center justify-center">
                       <svg className="w-28 h-28 transform -rotate-90">
@@ -1653,12 +1686,12 @@ export default function AdminDashboard() {
                 </div>
 
                 {(selectedChatFile || recordedAudioBlob) && (
-                  <div className="px-5 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0 select-none">
+                  <div className="px-5 py-2.5 border-t border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 flex items-center justify-between shrink-0 select-none">
                     <div className="flex items-center gap-2">
-                      <span className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">
+                      <span className="h-7 w-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 flex items-center justify-center text-[10px] font-bold">
                         {selectedChatFile ? "IMG" : "AUD"}
                       </span>
-                      <span className="text-xs font-bold text-slate-700 truncate max-w-[240px]">
+                      <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 truncate max-w-[240px]">
                         {selectedChatFile ? selectedChatFile.name : recordedAudioName}
                       </span>
                     </div>
@@ -1671,7 +1704,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                <form onSubmit={handleSendChatMessage} className="p-4 bg-white border-t border-slate-150 shrink-0">
+                <form onSubmit={handleSendChatMessage} className="p-4 bg-white dark:bg-zinc-900 border-t border-slate-150 dark:border-zinc-800 shrink-0">
                   <input
                     type="file"
                     ref={chatFileInputRef}
@@ -1694,7 +1727,7 @@ export default function AdminDashboard() {
                         onChange={(e) => setIsInternalNote(e.target.checked)}
                         className="rounded text-emerald-600 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"
                       />
-                      <label htmlFor="internal_note" className="text-[10px] font-bold text-slate-500 cursor-pointer uppercase tracking-wider">
+                      <label htmlFor="internal_note" className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 cursor-pointer uppercase tracking-wider">
                         Nota interna / privada (Apenas para equipe de suporte)
                       </label>
                     </div>
@@ -1704,7 +1737,7 @@ export default function AdminDashboard() {
                         <button
                           type="button"
                           onClick={() => chatFileInputRef.current?.click()}
-                          className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-650 hover:bg-slate-200 hover:text-slate-800 transition-colors shrink-0"
+                          className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-650 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 hover:text-slate-800 dark:hover:text-white transition-colors shrink-0"
                           title="Anexar Imagem"
                         >
                           <Paperclip className="h-4.5 w-4.5" />
@@ -1713,7 +1746,7 @@ export default function AdminDashboard() {
                         <button
                           type="button"
                           onClick={cancelRecording}
-                          className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0"
+                          className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-50 dark:bg-red-950/20 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors shrink-0"
                           title="Cancelar Gravação"
                         >
                           <Trash2 className="h-4.5 w-4.5" />
@@ -1726,12 +1759,12 @@ export default function AdminDashboard() {
                           value={newChatMessage}
                           onChange={(e) => setNewChatMessage(e.target.value)}
                           placeholder={isInternalNote ? "Escreva uma nota interna privada..." : "Escreva uma resposta ao aluno..."}
-                          className="flex-1 h-10 border border-slate-200 rounded-xl px-4 text-xs font-medium bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-colors"
+                          className="flex-1 h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-medium bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 transition-colors dark:text-white"
                         />
                       ) : (
-                        <div className="flex-1 h-10 bg-red-50 border border-red-100 rounded-xl px-4 flex items-center justify-between gap-4">
+                        <div className="flex-1 h-10 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl px-4 flex items-center justify-between gap-4">
                           <span className="text-[10px] font-bold text-red-500 animate-pulse uppercase tracking-wider">Gravando Áudio do Atendente</span>
-                          <span className="text-xs font-bold text-red-500 font-mono">
+                          <span className="text-xs font-bold text-red-500 dark:text-red-400 font-mono">
                             {formatTimer(recordingSeconds)}
                           </span>
                         </div>
@@ -1770,7 +1803,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Column 3: SLA Countdown Ring & Actions Panel (Right) */}
-              <div className="hidden xl:flex xl:flex-col w-full xl:w-72 bg-white border border-slate-150 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
+              <div className="hidden xl:flex xl:flex-col w-full xl:w-72 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto space-y-6">
                 
                 <div className="bg-[#001530] text-white rounded-2xl p-5 text-center shadow-md relative overflow-hidden select-none space-y-3 flex flex-col items-center">
                   <span className="text-[9px] font-extrabold text-slate-350 tracking-wider uppercase">TEMPO EM ABERTO</span>
@@ -1820,14 +1853,14 @@ export default function AdminDashboard() {
 
                       <button
                         onClick={() => openStatusDialog(selectedTicket)}
-                        className="w-full h-11 bg-white border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
+                        className="w-full h-11 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-slate-350 dark:hover:border-zinc-700 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-between px-4 cursor-pointer"
                       >
                         <span>Definir Prazo / Status</span>
-                        <Calendar className="h-4.5 w-4.5 text-slate-450" />
+                        <Calendar className="h-4.5 w-4.5 text-slate-450 dark:text-zinc-500" />
                       </button>
                     </>
                   ) : (
-                    <div className="p-3 border border-emerald-250 bg-emerald-50 text-emerald-700 rounded-xl text-center text-xs font-bold">
+                    <div className="p-3 border border-emerald-250 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-450 rounded-xl text-center text-xs font-bold">
                       ✓ Chamado Finalizado / Resolvido
                     </div>
                   )}
@@ -1835,27 +1868,27 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleFinalizeTicket(selectedTicket.id)}
                     disabled={selectedTicket.status === "finalizado"}
-                    className="w-full h-11 bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl text-xs font-bold flex items-center justify-between px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full h-11 bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/30 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl text-xs font-bold flex items-center justify-between px-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span>Rejeitar / Encerrar</span>
-                    <X className="h-4.5 w-4.5 text-red-450" />
+                    <X className="h-4.5 w-4.5 text-red-450 dark:text-red-500" />
                   </button>
                 </div>
 
                 <div className="space-y-3.5 select-none">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">LOG DE ATIVIDADES</span>
-                  <div className="space-y-4 border-l border-slate-200 pl-3.5 relative">
+                  <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-550 uppercase tracking-wider block">LOG DE ATIVIDADES</span>
+                  <div className="space-y-4 border-l border-slate-200 dark:border-zinc-800 pl-3.5 relative">
                     <div className="relative text-xs space-y-0.5">
-                      <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-slate-400 border border-white" />
-                      <p className="font-bold text-slate-700">Chamado Aberto</p>
-                      <p className="text-[10px] text-slate-450 font-bold">{new Date(selectedTicket.criado_em).toLocaleDateString("pt-BR")}</p>
+                      <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-slate-400 border border-white dark:border-zinc-900" />
+                      <p className="font-bold text-slate-700 dark:text-zinc-300">Chamado Aberto</p>
+                      <p className="text-[10px] text-slate-450 dark:text-zinc-500 font-bold">{new Date(selectedTicket.criado_em).toLocaleDateString("pt-BR")}</p>
                     </div>
 
                     {selectedTicket.admin_id && (
                       <div className="relative text-xs space-y-0.5">
-                        <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white" />
-                        <p className="font-bold text-slate-700">Responsável Atribuído</p>
-                        <p className="text-[10px] text-slate-450 font-bold">Admin ID #{selectedTicket.admin_id}</p>
+                        <span className="absolute left-[-19.5px] top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 border border-white dark:border-zinc-900" />
+                        <p className="font-bold text-slate-700 dark:text-zinc-300">Responsável Atribuído</p>
+                        <p className="text-[10px] text-slate-450 dark:text-zinc-500 font-bold">Admin ID #{selectedTicket.admin_id}</p>
                       </div>
                     )}
 
@@ -1876,10 +1909,10 @@ export default function AdminDashboard() {
               {activeTab === "fila" && (
                 <div className="space-y-6">
                   {activeTickets.length === 0 ? (
-                    <div className="p-16 border border-dashed border-slate-250 bg-white rounded-2xl text-center select-none animate-in fade-in">
-                      <ClipboardList className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                      <h3 className="text-sm font-bold text-slate-700">Fila limpa!</h3>
-                      <p className="text-xs text-slate-450 mt-1">Nenhum chamado aberto ou pendente precisando de atenção no momento.</p>
+                    <div className="p-16 border border-dashed border-slate-250 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-center select-none animate-in fade-in">
+                      <ClipboardList className="h-12 w-12 text-slate-300 dark:text-zinc-700 mx-auto mb-4" />
+                      <h3 className="text-sm font-bold text-slate-700 dark:text-zinc-200">Fila limpa!</h3>
+                      <p className="text-xs text-slate-450 dark:text-zinc-500 mt-1">Nenhum chamado aberto ou pendente precisando de atenção no momento.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -1902,25 +1935,25 @@ export default function AdminDashboard() {
                               setTicketView("chat");
                               setShowDetails(false);
                             }}
-                            className={`bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-500/20 cursor-pointer flex flex-col justify-between relative ${
+                            className={`bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-500/20 cursor-pointer flex flex-col justify-between relative ${
                               ticket.status === "em_andamento"
-                                ? "border-t-4 border-t-emerald-600"
+                                ? "border-t-4 border-t-emerald-650"
                                 : "border-t-4 border-t-amber-500"
                             }`}
                           >
                             <div className="flex gap-4 items-start">
-                              <div className="h-11 w-11 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-500 shrink-0 mt-0.5">
+                              <div className="h-11 w-11 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center text-red-500 dark:text-red-400 shrink-0 mt-0.5">
                                 <FolderClosed className="h-5 w-5" />
                               </div>
-
+                              
                               <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-start gap-2">
-                                  <h3 className="text-sm font-extrabold text-slate-800 line-clamp-1">
+                                  <h3 className="text-sm font-extrabold text-slate-800 dark:text-white line-clamp-1">
                                     {ticket.titulo || ticket.categoria}
                                   </h3>
                                   <div className="flex items-center gap-2 shrink-0">
                                     {ticket.prazo && (
-                                      <span className="text-[9px] font-extrabold bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full flex items-center gap-1 select-none">
+                                      <span className="text-[9px] font-extrabold bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 px-2 py-0.5 rounded-full flex items-center gap-1 select-none">
                                         <Calendar className="h-3 w-3" />
                                         Prazo: {new Date(ticket.prazo).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
                                       </span>
@@ -1928,35 +1961,35 @@ export default function AdminDashboard() {
                                     <span className={`text-[10px] font-bold uppercase tracking-wide ${
                                       ticket.status === "pendente"
                                         ? "text-amber-500"
-                                        : "text-[#0d1317]"
+                                        : "text-[#0d1317] dark:text-[#00afef]"
                                     }`}>
                                       {ticket.status === "pendente" ? "ABERTO" : "ATENDIMENTO"}
                                     </span>
                                   </div>
                                 </div>
-
-                                <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl mt-3 text-xs space-y-1">
-                                  <p className="text-slate-600 font-semibold"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Aluno:</span> {ticket.cliente || "Estudante"}</p>
-                                  <p className="text-slate-600 font-semibold"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Categoria:</span> {ticket.categoria}</p>
-                                  <p className="text-slate-650 font-semibold"><span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Criado em:</span> {formattedDate}</p>
+                                
+                                <div className="bg-slate-50 dark:bg-zinc-950/50 border border-slate-105 dark:border-zinc-800 p-2.5 rounded-xl mt-3 text-xs space-y-1">
+                                  <p className="text-slate-600 dark:text-zinc-350 font-semibold"><span className="font-bold text-slate-400 dark:text-zinc-500 uppercase text-[9px] mr-1">Aluno:</span> {ticket.cliente || "Estudante"}</p>
+                                  <p className="text-slate-600 dark:text-zinc-350 font-semibold"><span className="font-bold text-slate-400 dark:text-zinc-500 uppercase text-[9px] mr-1">Categoria:</span> {ticket.categoria}</p>
+                                  <p className="text-slate-655 dark:text-zinc-300 font-semibold"><span className="font-bold text-slate-400 dark:text-zinc-500 uppercase text-[9px] mr-1">Criado em:</span> {formattedDate}</p>
                                 </div>
-
-                                <p className="text-xs text-slate-500 mt-3 line-clamp-3 leading-relaxed font-medium">
+                                
+                                <p className="text-xs text-slate-550 dark:text-zinc-400 mt-3 line-clamp-3 leading-relaxed font-medium">
                                   {ticket.descricao}
                                 </p>
                               </div>
                             </div>
-
-                            <div className="border-t border-slate-100 pt-3 mt-4 flex items-center justify-between gap-3">
+                            
+                            <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 mt-4 flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 select-none">
                                 <div className="h-6 w-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
                                   {getInitials(ticket.cliente)}
                                 </div>
-                                <span className="text-[10px] text-slate-400 font-semibold">
+                                <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">
                                   Criado por {ticket.cliente || "Estudante"}
                                 </span>
                               </div>
-
+                              
                               <div className="flex gap-2">
                                 {ticket.status === "pendente" ? (
                                   <button
@@ -1969,7 +2002,7 @@ export default function AdminDashboard() {
                                   <>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); openStatusDialog(ticket); }}
-                                      className="border border-slate-200 text-slate-650 hover:bg-slate-50 active:scale-95 px-2.5 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer"
+                                      className="border border-slate-200 dark:border-zinc-800 text-slate-650 dark:text-zinc-305 hover:bg-slate-50 dark:hover:bg-zinc-850 active:scale-95 px-2.5 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer"
                                       title="Definir prazo / Alterar status"
                                     >
                                       <Edit2 className="h-3.5 w-3.5" />
@@ -1996,15 +2029,15 @@ export default function AdminDashboard() {
               {activeTab === "resolvidos" && (
                 <div className="space-y-6">
                   {resolvedTickets.length === 0 ? (
-                    <div className="p-16 bg-white border border-slate-100 rounded-2xl text-center select-none">
-                      <p className="text-xs font-semibold text-slate-400">Nenhum chamado no histórico de finalizados.</p>
+                    <div className="p-16 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl text-center select-none">
+                      <p className="text-xs font-semibold text-slate-400 dark:text-zinc-550">Nenhum chamado no histórico de finalizados.</p>
                     </div>
                   ) : (
-                    <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-sm">
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider select-none">
+                            <tr className="bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 font-bold uppercase tracking-wider select-none">
                               <th className="p-4 pl-6">ID</th>
                               <th className="p-4">Assunto</th>
                               <th className="p-4">Aluno</th>
@@ -2014,21 +2047,21 @@ export default function AdminDashboard() {
                               <th className="p-4 pr-6 text-right">Ação</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                          <tbody className="divide-y divide-slate-100 dark:divide-zinc-805 font-medium text-slate-700 dark:text-zinc-300">
                             {resolvedTickets.map(ticket => (
-                              <tr key={ticket.id} className="hover:bg-slate-55 transition-colors">
-                                <td className="p-4 pl-6 font-bold text-slate-400">#{ticket.id}</td>
-                                <td className="p-4 font-bold text-slate-800 truncate max-w-[180px]" title={ticket.titulo || ""}>
+                              <tr key={ticket.id} className="hover:bg-slate-55 dark:hover:bg-zinc-850/50 transition-colors">
+                                <td className="p-4 pl-6 font-bold text-slate-400 dark:text-zinc-550">#{ticket.id}</td>
+                                <td className="p-4 font-bold text-slate-800 dark:text-white truncate max-w-[180px]" title={ticket.titulo || ""}>
                                   {ticket.titulo || ticket.categoria}
                                 </td>
                                 <td className="p-4">{ticket.cliente || "Estudante"}</td>
                                 <td className="p-4">
-                                  <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold select-none">
+                                  <span className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-350 px-2 py-0.5 rounded-md font-semibold select-none">
                                     {ticket.categoria}
                                   </span>
                                 </td>
-                                <td className="p-4 font-bold text-slate-500">{ticket.admin_nome || "Nenhum"}</td>
-                                <td className="p-4 text-slate-400">
+                                <td className="p-4 font-bold text-slate-500 dark:text-zinc-450">{ticket.admin_nome || "Nenhum"}</td>
+                                <td className="p-4 text-slate-400 dark:text-zinc-500">
                                   {new Date(ticket.criado_em).toLocaleDateString("pt-BR")}
                                 </td>
                                 <td className="p-4 pr-6 text-right">
@@ -2041,7 +2074,7 @@ export default function AdminDashboard() {
                                       setTicketView("chat");
                                       setShowDetails(false);
                                     }}
-                                    className="bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 px-3.5 py-1.5 rounded-lg font-bold transition-all text-[11px] cursor-pointer"
+                                    className="bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 hover:text-slate-800 dark:hover:text-white px-3.5 py-1.5 rounded-lg font-bold transition-all text-[11px] cursor-pointer"
                                   >
                                     Ver Conversa
                                   </button>
@@ -2060,12 +2093,12 @@ export default function AdminDashboard() {
               {activeTab === "usuarios" && (
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
                   <div className="xl:col-span-2 space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider select-none">Usuários Cadastrados</h3>
-                    <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider select-none">Usuários Cadastrados</h3>
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                           <thead>
-                            <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider select-none">
+                            <tr className="bg-slate-50 dark:bg-zinc-950/40 border-b border-slate-100 dark:border-zinc-800 text-slate-400 dark:text-zinc-550 font-bold uppercase tracking-wider select-none">
                               <th className="p-4 pl-6">ID</th>
                               <th className="p-4">Nome</th>
                               <th className="p-4">E-mail</th>
@@ -2074,18 +2107,18 @@ export default function AdminDashboard() {
                               <th className="p-4 pr-6 text-right">Ações</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                          <tbody className="divide-y divide-slate-100 dark:divide-zinc-800 font-medium text-slate-700 dark:text-zinc-300">
                             {usersList.map(user => {
                               const isUserAdmin = user.is_admin === 1 || user.is_admin === true;
                               return (
-                                <tr key={user.id} className="hover:bg-slate-55 transition-colors">
-                                  <td className="p-4 pl-6 font-bold text-slate-400">#{user.id}</td>
-                                  <td className="p-4 font-bold text-slate-850">{user.nome}</td>
-                                  <td className="p-4 text-slate-500">{user.email}</td>
-                                  <td className="p-4 font-bold text-slate-400">{user.cargo || "Aluno"}</td>
+                                <tr key={user.id} className="hover:bg-slate-55 dark:hover:bg-zinc-850/50 transition-colors">
+                                  <td className="p-4 pl-6 font-bold text-slate-400 dark:text-zinc-550">#{user.id}</td>
+                                  <td className="p-4 font-bold text-slate-850 dark:text-white">{user.nome}</td>
+                                  <td className="p-4 text-slate-500 dark:text-zinc-400">{user.email}</td>
+                                  <td className="p-4 font-bold text-slate-400 dark:text-zinc-500">{user.cargo || "Aluno"}</td>
                                   <td className="p-4">
                                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full select-none ${
-                                      isUserAdmin ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-500"
+                                      isUserAdmin ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-250 dark:border-emerald-900/30" : "bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
                                     }`}>
                                       {isUserAdmin ? "ADMIN" : "ESTUDANTE"}
                                     </span>
@@ -2093,7 +2126,7 @@ export default function AdminDashboard() {
                                   <td className="p-4 pr-6 text-right space-x-2">
                                     <button
                                       onClick={() => openEditUserDialog(user)}
-                                      className="text-slate-500 hover:text-emerald-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors cursor-pointer"
+                                      className="text-slate-500 dark:text-zinc-450 hover:text-emerald-600 dark:hover:text-emerald-450 hover:bg-slate-100 dark:hover:bg-zinc-805 p-1.5 rounded-lg transition-colors cursor-pointer"
                                       title="Editar Usuário"
                                     >
                                       <Edit2 className="h-3.5 w-3.5" />
@@ -2102,7 +2135,7 @@ export default function AdminDashboard() {
                                       disabled={currentUser?.id === user.id}
                                       onClick={() => handleDeleteUser(user.id)}
                                       className={`p-1.5 rounded-lg transition-colors ${
-                                        currentUser?.id === user.id ? "text-slate-350 cursor-not-allowed" : "text-slate-550 hover:text-red-600 hover:bg-slate-100 cursor-pointer"
+                                        currentUser?.id === user.id ? "text-slate-350 dark:text-zinc-700 cursor-not-allowed" : "text-slate-550 dark:text-zinc-400 hover:text-red-650 dark:hover:text-red-450 hover:bg-slate-100 dark:hover:bg-zinc-805 cursor-pointer"
                                       }`}
                                       title="Excluir Usuário"
                                     >
@@ -2118,64 +2151,64 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4 select-none">
-                      <UserCheck className="h-5 w-5 text-emerald-600" />
-                      <h3 className="text-sm font-extrabold text-slate-800">Cadastrar Novo Admin</h3>
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4 select-none">
+                      <UserCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+                      <h3 className="text-sm font-extrabold text-slate-800 dark:text-white">Cadastrar Novo Admin</h3>
                     </div>
                     
                     <form onSubmit={handleRegisterAdmin} className="space-y-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">Nome Completo</label>
+                        <label className="text-xs font-bold text-slate-650 dark:text-zinc-400">Nome Completo</label>
                         <input
                           type="text"
                           required
                           value={newAdminName}
                           onChange={(e) => setNewAdminName(e.target.value)}
                           placeholder="Ex: João da Silva"
-                          className="w-full h-10 border border-slate-200 rounded-xl px-4.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-semibold"
+                          className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-semibold dark:text-white"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">E-mail</label>
+                        <label className="text-xs font-bold text-slate-650 dark:text-zinc-400">E-mail</label>
                         <input
                           type="email"
                           required
                           value={newAdminEmail}
                           onChange={(e) => setNewAdminEmail(e.target.value)}
                           placeholder="Ex: joao.silva@admin.com"
-                          className="w-full h-10 border border-slate-200 rounded-xl px-4.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-semibold"
+                          className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-semibold dark:text-white"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">Senha Provisória</label>
+                        <label className="text-xs font-bold text-slate-650 dark:text-zinc-400">Senha Provisória</label>
                         <input
                           type="password"
                           required
                           value={newAdminPassword}
                           onChange={(e) => setNewAdminPassword(e.target.value)}
                           placeholder="Mínimo 6 caracteres"
-                          className="w-full h-10 border border-slate-200 rounded-xl px-4.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-semibold"
+                          className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-semibold dark:text-white"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">Cargo / Função</label>
+                        <label className="text-xs font-bold text-slate-650 dark:text-zinc-400">Cargo / Função</label>
                         <input
                           type="text"
                           value={newAdminCargo}
                           onChange={(e) => setNewAdminCargo(e.target.value)}
                           placeholder="Ex: Coordenador, Suporte TI"
-                          className="w-full h-10 border border-slate-200 rounded-xl px-4.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-semibold"
+                          className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-semibold dark:text-white"
                         />
                       </div>
 
                       <button
                         type="submit"
                         disabled={isSubmittingAdmin}
-                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300"
+                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 dark:disabled:bg-zinc-800"
                       >
                         {isSubmittingAdmin && <Loader2 className="h-4 w-4 animate-spin" />}
                         Cadastrar Administrador
@@ -2189,19 +2222,19 @@ export default function AdminDashboard() {
               {activeTab === "avisos" && (
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
                   <div className="xl:col-span-2 space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider select-none">Comunicados no Mural</h3>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider select-none">Comunicados no Mural</h3>
                     <div className="space-y-4">
                       {avisosList.length === 0 ? (
-                        <div className="p-12 border border-dashed border-slate-200 bg-white rounded-2xl text-center select-none">
-                          <p className="text-xs font-semibold text-slate-400">Nenhum aviso publicado no momento.</p>
+                        <div className="p-12 border border-dashed border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl text-center select-none">
+                          <p className="text-xs font-semibold text-slate-400 dark:text-zinc-550">Nenhum aviso publicado no momento.</p>
                         </div>
                       ) : (
                         avisosList.map(aviso => (
-                          <div key={aviso.id} className="bg-white border border-slate-150 p-5 rounded-2xl flex justify-between gap-4">
+                          <div key={aviso.id} className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl flex justify-between gap-4">
                             <div className="space-y-2">
-                              <h4 className="text-sm font-extrabold text-[#0d1317]">{aviso.titulo}</h4>
-                              <p className="text-xs text-slate-550 leading-relaxed font-medium">{aviso.mensagem}</p>
-                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold pt-2">
+                              <h4 className="text-sm font-extrabold text-[#0d1317] dark:text-white">{aviso.titulo}</h4>
+                              <p className="text-xs text-slate-550 dark:text-zinc-400 leading-relaxed font-medium">{aviso.mensagem}</p>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-400 dark:text-zinc-500 font-bold pt-2">
                                 <span>Por: {aviso.autor || "Coordenação"}</span>
                                 <span>•</span>
                                 <span>{new Date(aviso.data_criacao).toLocaleString("pt-BR")}</span>
@@ -2209,7 +2242,7 @@ export default function AdminDashboard() {
                             </div>
                             <button
                               onClick={() => handleDeleteAviso(aviso.id)}
-                              className="text-red-500 hover:text-red-750 hover:bg-red-50 p-2.5 rounded-xl shrink-0 h-10 w-10 flex items-center justify-center transition-colors cursor-pointer"
+                              className="text-red-500 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 p-2.5 rounded-xl shrink-0 h-10 w-10 flex items-center justify-center transition-colors cursor-pointer"
                               title="Remover Aviso"
                             >
                               <Trash2 className="h-4.5 w-4.5" />
@@ -2220,34 +2253,34 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4 select-none">
-                      <Megaphone className="h-5 w-5 text-emerald-600" />
-                      <h3 className="text-sm font-extrabold text-slate-800">Publicar Novo Comunicado</h3>
+                  <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-center gap-2 border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4 select-none">
+                      <Megaphone className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+                      <h3 className="text-sm font-extrabold text-slate-800 dark:text-white">Publicar Novo Comunicado</h3>
                     </div>
                     
                     <form onSubmit={handlePublishAviso} className="space-y-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">Título do Aviso</label>
+                        <label className="text-xs font-bold text-slate-650 dark:text-zinc-400">Título do Aviso</label>
                         <input
                           type="text"
                           required
                           value={avisoTitulo}
                           onChange={(e) => setAvisoTitulo(e.target.value)}
                           placeholder="Ex: Manutenção do ar condicionado..."
-                          className="w-full h-10 border border-slate-200 rounded-xl px-4.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-semibold"
+                          className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-semibold dark:text-white"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-xs font-bold text-slate-600">Mensagem do Comunicado</label>
+                        <label className="text-xs font-bold text-slate-655 dark:text-zinc-400">Mensagem do Comunicado</label>
                         <textarea
                           required
                           rows={5}
                           value={avisoMensagem}
                           onChange={(e) => setAvisoMensagem(e.target.value)}
                           placeholder="Digite aqui o aviso detalhado..."
-                          className="w-full border border-slate-200 rounded-xl p-3.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 transition-all font-medium leading-relaxed"
+                          className="w-full border border-slate-200 dark:border-zinc-800 rounded-xl p-3.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-905 focus:outline-none focus:border-emerald-500/40 transition-all font-medium leading-relaxed dark:text-white"
                         />
                       </div>
 
@@ -2527,39 +2560,39 @@ export default function AdminDashboard() {
       {/* Floating Dialog: Edit User Details */}
       {isEditUserOpen && selectedUser && (
         <>
-          <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsEditUserOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white border border-slate-150 rounded-2xl p-6 shadow-2xl z-50 animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-extrabold text-slate-800 mb-4 select-none">Editar Dados do Usuário</h3>
+          <div className="fixed inset-0 z-40 bg-slate-900/40 dark:bg-zinc-950/60 backdrop-blur-sm" onClick={() => setIsEditUserOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-50 animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-extrabold text-slate-800 dark:text-white mb-4 select-none">Editar Dados do Usuário</h3>
             <form onSubmit={handleUpdateUser} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-605">Nome Completo</label>
+                <label className="text-xs font-bold text-slate-605 dark:text-zinc-400">Nome Completo</label>
                 <input
                   type="text"
                   required
                   value={editUserName}
                   onChange={(e) => setEditUserName(e.target.value)}
-                  className="w-full h-10 border border-slate-200 rounded-xl px-4 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40"
+                  className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 dark:text-white"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-605">E-mail institucional</label>
+                <label className="text-xs font-bold text-slate-605 dark:text-zinc-400">E-mail institucional</label>
                 <input
                   type="email"
                   required
                   value={editUserEmail}
                   onChange={(e) => setEditUserEmail(e.target.value)}
-                  className="w-full h-10 border border-slate-200 rounded-xl px-4 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40"
+                  className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 dark:text-white"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-605">Cargo / Curso</label>
+                <label className="text-xs font-bold text-slate-605 dark:text-zinc-400">Cargo / Curso</label>
                 <input
                   type="text"
                   value={editUserCargo}
                   onChange={(e) => setEditUserCargo(e.target.value)}
-                  className="w-full h-10 border border-slate-200 rounded-xl px-4 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40"
+                  className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 dark:text-white"
                 />
               </div>
 
@@ -2571,23 +2604,23 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditUserIsAdmin(e.target.checked)}
                   className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
                 />
-                <label htmlFor="edit_is_admin" className="text-xs font-bold text-slate-650 cursor-pointer">
+                <label htmlFor="edit_is_admin" className="text-xs font-bold text-slate-650 dark:text-zinc-350 cursor-pointer">
                   Conceder privilégios de Administrador
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-zinc-850">
                 <button
                   type="button"
                   onClick={() => setIsEditUserOpen(false)}
-                  className="px-4.5 h-10 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4.5 h-10 border border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingUser}
-                  className="px-4.5 h-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300"
+                  className="px-4.5 h-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 dark:disabled:bg-zinc-850 dark:disabled:text-zinc-650"
                 >
                   {isUpdatingUser && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Salvar
@@ -2601,16 +2634,16 @@ export default function AdminDashboard() {
       {/* Floating Dialog: Update Ticket Status & Deadline */}
       {isStatusDialogOpen && statusDialogTicket && (
         <>
-          <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsStatusDialogOpen(false)} />
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white border border-slate-150 rounded-2xl p-6 shadow-2xl z-50 animate-in zoom-in-95 duration-200">
-            <h3 className="text-base font-extrabold text-slate-800 mb-4 select-none">Definir Prazo e Status (Chamado #{statusDialogTicket.id})</h3>
+          <div className="fixed inset-0 z-40 bg-slate-900/40 dark:bg-zinc-950/60 backdrop-blur-sm" onClick={() => setIsStatusDialogOpen(false)} />
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-6 shadow-2xl z-50 animate-in zoom-in-95 duration-200">
+            <h3 className="text-base font-extrabold text-slate-800 dark:text-white mb-4 select-none">Definir Prazo e Status (Chamado #{statusDialogTicket.id})</h3>
             <form onSubmit={handleUpdateStatus} className="space-y-4">
               <div className="space-y-1 select-none">
-                <label className="text-xs font-bold text-slate-605">Status do Atendimento</label>
+                <label className="text-xs font-bold text-slate-605 dark:text-zinc-400">Status do Atendimento</label>
                 <select
                   value={ticketStatus}
                   onChange={(e) => setTicketStatus(e.target.value as any)}
-                  className="w-full h-10 border border-slate-200 rounded-xl px-3.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40 font-semibold cursor-pointer"
+                  className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-3.5 text-xs bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 font-semibold cursor-pointer dark:text-white"
                 >
                   <option value="pendente">Aberto / Pendente</option>
                   <option value="em_andamento">Em Atendimento</option>
@@ -2619,27 +2652,27 @@ export default function AdminDashboard() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-605">Definir Prazo de SLA Limite</label>
+                <label className="text-xs font-bold text-slate-605 dark:text-zinc-400">Definir Prazo de SLA Limite</label>
                 <input
                   type="datetime-local"
                   value={ticketPrazo}
                   onChange={(e) => setTicketPrazo(e.target.value)}
-                  className="w-full h-10 border border-slate-200 rounded-xl px-4 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-emerald-500/40"
+                  className="w-full h-10 border border-slate-200 dark:border-zinc-800 rounded-xl px-4 text-xs font-semibold bg-slate-50 dark:bg-zinc-950 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:border-emerald-500/40 dark:text-white"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-zinc-850">
                 <button
                   type="button"
                   onClick={() => setIsStatusDialogOpen(false)}
-                  className="px-4.5 h-10 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4.5 h-10 border border-slate-200 dark:border-zinc-800 hover:bg-slate-55 dark:hover:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingStatus}
-                  className="px-4.5 h-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300"
+                  className="px-4.5 h-10 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 dark:disabled:bg-zinc-850 dark:disabled:text-zinc-650"
                 >
                   {isUpdatingStatus && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Atualizar Chamado

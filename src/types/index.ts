@@ -27,6 +27,7 @@ export interface Ticket {
   urgencia_solicitada?: number;
   atendido_em?: string | Date | null;
   finalizado_em?: string | Date | null;
+  db_time?: string | Date | null;
 }
 
 export interface Message {
