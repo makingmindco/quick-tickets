@@ -992,8 +992,8 @@ export default function AdminDashboard() {
       <aside className="hidden md:flex w-64 bg-[#0d1317] text-slate-100 flex-col justify-between shrink-0 select-none h-full shadow-lg">
         <div>
           {/* Brand header */}
-          <div className="p-6 border-b border-white/5">
-            <div className="flex flex-col items-start gap-1">
+          <div className="p-6 border-b border-white/5 flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center gap-1 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/logo.png" alt="QuickTickets Logo" className="h-[38px] w-auto object-contain block" />
               <span className="text-[10px] font-extrabold text-[#10b981] tracking-wider uppercase">Painel do Administrador</span>

@@ -655,8 +655,8 @@ export default function StudentDashboard() {
       <aside className="hidden md:flex w-64 bg-[#001530] text-slate-100 flex-col justify-between shrink-0 select-none h-full shadow-lg">
         <div>
           {/* Brand header */}
-          <div className="p-6 border-b border-white/5">
-            <div className="flex flex-col items-start gap-1">
+          <div className="p-6 border-b border-white/5 flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center gap-1 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/logo.png" alt="QuickTickets Logo" className="h-[38px] w-auto object-contain block" />
               <span className="text-[10px] font-extrabold text-white/40 tracking-wider uppercase">PORTAL - ESTUDANTE</span>
@@ -1008,7 +1008,9 @@ export default function StudentDashboard() {
 
           {/* TAB 2: TICKETS (LIST/WIZARD/CHAT) */}
           {activeTab === "tickets" && (
-            <div className="h-full w-full flex flex-col flex-1 overflow-hidden">
+            <div className={`w-full flex flex-col flex-1 ${
+              ticketView === "chat" ? "h-full overflow-hidden" : ""
+            }`}>
               
               {/* SUB-VIEW 2.1: LIST OF TICKETS */}
               {ticketView === "list" && (
