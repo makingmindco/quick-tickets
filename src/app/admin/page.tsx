@@ -430,6 +430,55 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleNotificationClick = async (notif: any) => {
+    markSingleNotificationRead(notif.id);
+    setShowNotifications(false);
+    if (!notif.link) return;
+
+    try {
+      const url = new URL(notif.link, window.location.origin);
+      const ticketIdParam = url.searchParams.get("ticketId");
+      if (ticketIdParam) {
+        const ticketId = parseInt(ticketIdParam);
+        const token = localStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const queueRes = await fetch("/api/admin/tickets", { headers });
+        const finishedRes = await fetch("/api/admin/tickets/finalizados", { headers });
+
+        let foundTicket: Ticket | undefined;
+        if (queueRes.ok) {
+          const data = await queueRes.json();
+          foundTicket = data.find((t: any) => t.id === ticketId);
+        }
+        if (!foundTicket && finishedRes.ok) {
+          const data = await finishedRes.json();
+          foundTicket = data.find((t: any) => t.id === ticketId);
+        }
+
+        if (foundTicket) {
+          setSelectedTicketId(ticketId);
+          setSelectedTicket(foundTicket);
+          setChatMessages([]);
+          fetchChatMessages(ticketId);
+
+          if (foundTicket.status === "finalizado") {
+            setActiveTab("resolvidos");
+          } else {
+            setActiveTab("fila");
+          }
+          setTicketView("chat");
+          setShowDetails(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    router.push(notif.link);
+  };
+
   const markAllNotificationsRead = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -1250,13 +1299,7 @@ export default function AdminDashboard() {
                         notifications.map((notif) => (
                           <div
                             key={notif.id}
-                            onClick={() => {
-                              markSingleNotificationRead(notif.id);
-                              setShowNotifications(false);
-                              if (notif.link) {
-                                router.push(notif.link);
-                              }
-                            }}
+                            onClick={() => handleNotificationClick(notif)}
                             className={`p-4 transition-colors flex gap-3 cursor-pointer ${
                               !notif.lida ? "bg-blue-50/50 dark:bg-[#0f62ac]/10 hover:bg-blue-50 dark:hover:bg-[#0f62ac]/20" : "hover:bg-slate-55 dark:hover:bg-zinc-850/50"
                             }`}

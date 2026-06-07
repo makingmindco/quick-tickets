@@ -316,6 +316,43 @@ export default function StudentDashboard() {
     }
   };
 
+  const handleNotificationClick = async (notif: any) => {
+    markSingleNotificationRead(notif.id);
+    setShowNotifications(false);
+    if (!notif.link) return;
+
+    try {
+      const url = new URL(notif.link, window.location.origin);
+      const ticketIdParam = url.searchParams.get("ticketId");
+      if (ticketIdParam) {
+        const ticketId = parseInt(ticketIdParam);
+        const token = localStorage.getItem("token");
+        const res = await fetch("/api/tickets", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const ticketsData: Ticket[] = await res.json();
+          setMyTickets(ticketsData);
+          const ticket = ticketsData.find(t => t.id === ticketId);
+          if (ticket) {
+            setSelectedTicketId(ticketId);
+            setSelectedTicket(ticket);
+            setChatMessages([]);
+            fetchChatMessages(ticketId);
+            setActiveTab("tickets");
+            setTicketView("chat");
+            setShowDetails(false);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    router.push(notif.link);
+  };
+
   const markAllNotificationsRead = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -870,13 +907,7 @@ export default function StudentDashboard() {
                         notifications.map((notif) => (
                           <div
                             key={notif.id}
-                            onClick={() => {
-                              markSingleNotificationRead(notif.id);
-                              setShowNotifications(false);
-                              if (notif.link) {
-                                router.push(notif.link);
-                              }
-                            }}
+                            onClick={() => handleNotificationClick(notif)}
                             className={`p-4 transition-colors flex gap-3 cursor-pointer ${
                               !notif.lida ? "bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/30" : "hover:bg-slate-55 dark:hover:bg-zinc-800/50"
                             }`}
