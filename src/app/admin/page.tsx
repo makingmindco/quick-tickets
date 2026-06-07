@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   const [ticketView, setTicketView] = useState<"list" | "chat">("list");
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Data states
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
@@ -1218,21 +1219,38 @@ export default function AdminDashboard() {
         </header>
 
         {/* Dynamic Inner Panel View Wrapper */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className={`flex-1 ${
+          ticketView === "chat"
+            ? "overflow-hidden p-0 md:p-6"
+            : "overflow-y-auto p-6 md:p-8"
+        }`}>
           
           {/* TICKET DETAILS SCREEN (3-Column View, Screenshot 4) */}
           {ticketView === "chat" && selectedTicket ? (
-            <div className="h-[calc(100vh-140px)] flex flex-col xl:flex-row gap-6 overflow-hidden">
+            <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden">
               
               {/* Column 1: Requestor Metadata Panel (Left) */}
-              <div className="w-full xl:w-72 bg-white border border-slate-150 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto select-none space-y-5.5">
-                <button
-                  onClick={() => setTicketView("list")}
-                  className="flex items-center gap-2 text-xs font-bold text-slate-450 hover:text-slate-800 transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Voltar para Fila
-                </button>
+              <div className={`${
+                showDetails ? "absolute inset-0 z-20 flex bg-white dark:bg-zinc-900" : "hidden"
+              } xl:flex xl:relative xl:z-0 w-full xl:w-72 border border-slate-150 dark:border-zinc-800 rounded-3xl p-5.5 shadow-sm shrink-0 overflow-y-auto select-none flex-col space-y-5.5`}>
+                
+                <div className="flex items-center justify-between xl:block shrink-0">
+                  <button
+                    onClick={() => setTicketView("list")}
+                    className="flex items-center gap-2 text-xs font-bold text-slate-455 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar para Fila
+                  </button>
+                  
+                  <button
+                    onClick={() => setShowDetails(false)}
+                    className="xl:hidden p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-850"
+                    title="Fechar Detalhes"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
 
                 <hr className="border-slate-100" />
 
@@ -1346,16 +1364,32 @@ export default function AdminDashboard() {
               </div>
 
               {/* Column 2: Chat Conversation Panel (Center) */}
-              <div className="flex-1 bg-white border border-slate-150 rounded-3xl shadow-sm flex flex-col overflow-hidden">
-                <div className="px-5.5 py-4 border-b border-slate-150 bg-slate-50 flex items-center justify-between shrink-0">
-                  <div className="min-w-0 pr-4">
-                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">TICKET ID: QT-{selectedTicket.id}</span>
-                    <h3 className="text-sm font-extrabold text-slate-800 truncate mt-0.5">
-                      {selectedTicket.titulo || selectedTicket.categoria}
-                    </h3>
+              <div className="flex-1 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-850 rounded-3xl shadow-sm flex flex-col overflow-hidden">
+                <div className="px-5.5 py-4 border-b border-slate-150 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/20 flex items-center justify-between shrink-0">
+                  <div className="min-w-0 pr-4 flex items-center gap-2">
+                    <button
+                      onClick={() => setTicketView("list")}
+                      className="xl:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">TICKET ID: QT-{selectedTicket.id}</span>
+                      <h3 className="text-sm font-extrabold text-slate-800 dark:text-white truncate mt-0.5">
+                        {selectedTicket.titulo || selectedTicket.categoria}
+                      </h3>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      onClick={() => setShowDetails(true)}
+                      className="xl:hidden p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                      title="Ver Detalhes do Chamado"
+                    >
+                      <AlertCircle className="h-5 w-5" />
+                    </button>
+                    
                     <div className="flex -space-x-2 select-none">
                       <div className="h-7 w-7 rounded-full bg-emerald-600 text-white border-2 border-white flex items-center justify-center font-bold text-[9px]">
                         {avatarInitials}
@@ -1694,6 +1728,7 @@ export default function AdminDashboard() {
                               setChatMessages([]);
                               fetchChatMessages(ticket.id);
                               setTicketView("chat");
+                              setShowDetails(false);
                             }}
                             className={`bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md hover:border-emerald-500/20 cursor-pointer flex flex-col justify-between relative ${
                               ticket.status === "em_andamento"
@@ -1832,6 +1867,7 @@ export default function AdminDashboard() {
                                       setChatMessages([]);
                                       fetchChatMessages(ticket.id);
                                       setTicketView("chat");
+                                      setShowDetails(false);
                                     }}
                                     className="bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 px-3.5 py-1.5 rounded-lg font-bold transition-all text-[11px] cursor-pointer"
                                   >
