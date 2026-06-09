@@ -949,7 +949,7 @@ export default function StudentDashboard() {
       </aside>
 
       {/* Main Panel Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden pb-16 md:pb-0">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden pb-0">
         
         {/* Top Header Bar */}
         <header className="h-20 bg-white dark:bg-zinc-900 border-b border-slate-150 dark:border-zinc-800 flex items-center justify-between px-6 md:px-8 shrink-0 relative z-30">
@@ -964,6 +964,15 @@ export default function StudentDashboard() {
           </div>
 
           <div className="flex items-center gap-5">
+            {/* Botão de Logout para Mobile */}
+            <button
+              onClick={handleLogout}
+              className="md:hidden text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors h-10 w-10 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center cursor-pointer shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+
             {/* Notification bell button */}
             <div className="relative">
               <button
@@ -1070,10 +1079,10 @@ export default function StudentDashboard() {
         <div className={`flex-1 flex flex-col ${
           activeTab === "tickets" && ticketView === "chat"
             ? "overflow-hidden p-0 md:p-6"
-            : "overflow-y-auto p-6 md:p-8"
+            : "overflow-y-auto p-6 pb-28 md:p-8"
         }`}>
           
-          {/* TAB 1: INÍCIO (DASHBOARD) */}
+          {/* Dashboard Inicial */}
           {activeTab === "inicio" && (
             <div className="space-y-8 select-none">
               {/* Hero Banner Welcome Card */}
@@ -1234,13 +1243,13 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* TAB 2: TICKETS (LIST/WIZARD/CHAT) */}
+          {/* Aba de Tickets */}
           {activeTab === "tickets" && (
             <div className={`w-full flex flex-col flex-1 ${
               ticketView === "chat" ? "h-full overflow-hidden" : ""
             }`}>
               
-              {/* SUB-VIEW 2.1: LIST OF TICKETS */}
+              {/* Listagem de Tickets */}
               {ticketView === "list" && (
                 <div className="space-y-6 select-none animate-in fade-in duration-200">
                   <div className="flex justify-between items-center">
@@ -1343,7 +1352,7 @@ export default function StudentDashboard() {
                 </div>
               )}
 
-              {/* SUB-VIEW 2.2: WIZARD TICKET CREATION */}
+              {/* Abertura de Novo Ticket */}
               {ticketView === "create" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Stepper Wizard Form Column */}
@@ -1645,7 +1654,7 @@ export default function StudentDashboard() {
                 </div>
               )}
 
-              {/* SUB-VIEW 2.3: 3-COLUMN TICKET DETAILED CONVERSATION VIEW */}
+              {/* Detalhes do Chamado e Chat */}
               {ticketView === "chat" && selectedTicket && (
                 <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden relative animate-in fade-in duration-200">
                   
@@ -2295,7 +2304,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* TAB 5: SETTINGS / AJUSTES DA CONTA (Screenshot 3) */}
+          {/* Configurações da Conta */}
           {activeTab === "settings" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Profile Card & Preferences Column */}
@@ -2335,7 +2344,7 @@ export default function StudentDashboard() {
                       <h3 className="text-base font-extrabold text-slate-800 dark:text-white leading-snug">{currentUser?.nome}</h3>
                       <p className="text-xs text-slate-450 dark:text-slate-400 font-bold tracking-tight mt-0.5">{currentUser?.email}</p>
                       <span className="inline-block bg-blue-50 dark:bg-blue-950/30 text-[#0f62ac] dark:text-[#00afef] px-2.5 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider mt-2.5">
-                        Estudante de Graduação
+                        {currentUser?.cargo || "Estudante"}
                       </span>
                     </div>
                   </div>
@@ -2514,32 +2523,34 @@ export default function StudentDashboard() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#001530] border-t border-white/5 flex items-center justify-around z-30 px-2 select-none">
-        <button
-          onClick={() => { setActiveTab("inicio"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "inicio" ? "text-white bg-[#0f62ac]" : "text-slate-400"
-          }`}
-        >
-          <LayoutDashboard className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("tickets"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "tickets" ? "text-white bg-[#0f62ac]" : "text-slate-400"
-          }`}
-        >
-          <Inbox className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("settings"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "settings" ? "text-white bg-[#0f62ac]" : "text-slate-400"
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-        </button>
-      </nav>
+      {ticketView !== "chat" && (
+        <nav className="md:hidden fixed bottom-4 left-4 right-4 h-16 bg-[#001530]/90 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-around z-30 px-4 shadow-xl">
+          <button
+            onClick={() => { setActiveTab("inicio"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "inicio" ? "text-white bg-[#0f62ac] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("tickets"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "tickets" ? "text-white bg-[#0f62ac] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Inbox className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("settings"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "settings" ? "text-white bg-[#0f62ac] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

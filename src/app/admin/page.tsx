@@ -1374,7 +1374,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Panel Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden pb-16 md:pb-0">
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden pb-0">
         
         {/* Maintenance warning banner at top of main container if active */}
         {maintenanceMode && (
@@ -1399,6 +1399,15 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-5">
+            {/* Botão de Logout para Mobile */}
+            <button
+              onClick={handleLogout}
+              className="md:hidden text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors h-10 w-10 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center justify-center cursor-pointer shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+
             {/* Quick Metrics display */}
             <div className="hidden lg:flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-zinc-400 border-r border-slate-150 dark:border-zinc-800 pr-5 select-none">
               <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-amber-500" /> {statusStats.pendente} pendentes</span>
@@ -1512,10 +1521,10 @@ export default function AdminDashboard() {
         <div className={`flex-1 flex flex-col ${
           ticketView === "chat"
             ? "overflow-hidden p-0 md:p-6"
-            : "overflow-y-auto p-6 md:p-8"
+            : "overflow-y-auto p-6 pb-28 md:p-8"
         }`}>
           
-          {/* TICKET DETAILS SCREEN (3-Column View, Screenshot 4) */}
+          {/* Detalhes do Chamado e Chat */}
           {ticketView === "chat" && selectedTicket ? (
             <div className="h-full w-full flex flex-col xl:flex-row gap-6 overflow-hidden relative">
               
@@ -2164,7 +2173,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              {/* TAB 1: FILA DE ATENDIMENTO */}
+              {/* Fila de Atendimento */}
               {activeTab === "fila" && (
                 <div className="space-y-6">
                   {activeTickets.length === 0 ? (
@@ -2361,7 +2370,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* TAB 2: CHAMADOS RESOLVIDOS */}
+              {/* Chamados Resolvidos */}
               {activeTab === "resolvidos" && (
                 <div className="space-y-6">
                   {resolvedTickets.length === 0 ? (
@@ -2436,7 +2445,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* TAB 1.5: GRÁFICOS E RELATÓRIOS */}
+              {/* Gráficos e Métricas */}
               {activeTab === "relatorios" && (
                 <div className="space-y-6">
                   <div className="flex justify-between items-center select-none">
@@ -2662,7 +2671,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* TAB 3: GERENCIAR USUÁRIOS */}
+              {/* Gerenciamento de Usuários */}
               {activeTab === "usuarios" && (
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
                   <div className="xl:col-span-2 space-y-4">
@@ -2791,7 +2800,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* TAB 4: MURAL DE AVISOS */}
+              {/* Mural de Avisos */}
               {activeTab === "avisos" && (
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
                   <div className="xl:col-span-2 space-y-4">
@@ -2870,7 +2879,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* TAB 5: CONFIGURAÇÕES DO SISTEMA E DO PERFIL */}
+              {/* Configurações do Sistema e Perfil */}
               {activeTab === "configuracoes" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in duration-200">
                   {/* Column 1 & 2: System Settings and Categories */}
@@ -3257,57 +3266,59 @@ export default function AdminDashboard() {
       )}
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0d1317] border-t border-white/5 flex items-center justify-around z-30 px-2 select-none">
-        <button
-          onClick={() => { setActiveTab("fila"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "fila" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-        >
-          <Inbox className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("resolvidos"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "resolvidos" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-        >
-          <CheckCircle2 className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("relatorios"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "relatorios" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-          title="Gráficos e Métricas"
-        >
-          <BarChart3 className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("usuarios"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "usuarios" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-        >
-          <Users className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("avisos"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "avisos" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-        >
-          <Megaphone className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => { setActiveTab("configuracoes"); setTicketView("list"); }}
-          className={`p-2.5 rounded-xl transition-all ${
-            activeTab === "configuracoes" ? "text-white bg-[#1e293b] border-t-2 border-emerald-500 rounded-t-none" : "text-slate-400"
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-        </button>
-      </nav>
+      {ticketView !== "chat" && (
+        <nav className="md:hidden fixed bottom-4 left-4 right-4 h-16 bg-[#0d1317]/90 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-around z-30 px-3 shadow-xl">
+          <button
+            onClick={() => { setActiveTab("fila"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "fila" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Inbox className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("resolvidos"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "resolvidos" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <CheckCircle2 className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("relatorios"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "relatorios" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+            title="Gráficos e Métricas"
+          >
+            <BarChart3 className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("usuarios"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "usuarios" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Users className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("avisos"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "avisos" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Megaphone className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => { setActiveTab("configuracoes"); setTicketView("list"); }}
+            className={`p-2.5 rounded-xl transition-all ${
+              activeTab === "configuracoes" ? "text-white bg-[#1e293b] scale-110" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

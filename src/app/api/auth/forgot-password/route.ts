@@ -51,14 +51,19 @@ export async function POST(req: NextRequest) {
       `
     };
 
+    let isEmailSent = true;
     try {
       await transporter.sendMail(emailConfig);
     } catch (emailErr) {
       console.error('[Mailer] Erro ao enviar e-mail de recuperação de senha:', emailErr);
       console.log(`[Recuperação] Link para redefinir a senha do usuário (${email}): ${resetUrl}`);
+      isEmailSent = false;
     }
 
-    return NextResponse.json({ mensagem: 'Se o e-mail estiver cadastrado, você receberá as instruções em instantes.' }, { status: 200 });
+    return NextResponse.json({ 
+      mensagem: 'Se o e-mail estiver cadastrado, você receberá as instruções em instantes.',
+      devLink: !isEmailSent ? resetUrl : undefined
+    }, { status: 200 });
   } catch (erro) {
     console.error(erro);
     return NextResponse.json({ erro: 'Erro ao processar a solicitação.' }, { status: 500 });

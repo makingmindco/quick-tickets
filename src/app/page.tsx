@@ -145,6 +145,9 @@ export default function AuthPage() {
 
       if (res.ok) {
         toast.success("Conta criada! Código de confirmação enviado ao seu e-mail.");
+        if (data.devCode) {
+          toast.warning(`[Dev Mode] Código de confirmação: ${data.devCode}`, { duration: 15000 });
+        }
         setEmailConfirmTarget(regEmail);
         setActiveBox("confirm");
       } else {
@@ -201,6 +204,12 @@ export default function AuthPage() {
 
       if (res.ok) {
         toast.success(data.mensagem);
+        if (data.devLink) {
+          toast.warning(`[Dev Mode] Redirecionando para redefinir senha...`, { duration: 5000 });
+          setTimeout(() => {
+            router.push(data.devLink.substring(data.devLink.indexOf('/reset-password')));
+          }, 1500);
+        }
         setEmail(forgotEmail);
         setActiveBox("login");
       } else {

@@ -58,14 +58,19 @@ export async function POST(req: NextRequest) {
       `
     };
 
+    let isEmailSent = true;
     try {
       await transporter.sendMail(emailConfig);
     } catch (emailErr) {
       console.error('[Mailer] Erro ao enviar e-mail de confirmação de cadastro:', emailErr);
       console.log(`[Confirmação] Código para o e-mail (${email}): ${token}`);
+      isEmailSent = false;
     }
 
-    return NextResponse.json({ mensagem: 'Usuário cadastrado! Digite o código de 6 dígitos enviado ao seu e-mail para ativar a conta.' }, { status: 201 });
+    return NextResponse.json({ 
+      mensagem: 'Usuário cadastrado! Digite o código de 6 dígitos enviado ao seu e-mail para ativar a conta.',
+      devCode: !isEmailSent ? token : undefined
+    }, { status: 201 });
   } catch (erro) {
     console.error(erro);
     return NextResponse.json({ erro: 'Erro ao cadastrar usuário.' }, { status: 500 });
