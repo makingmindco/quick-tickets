@@ -22,8 +22,8 @@ export function ThreeCanvasLogin() {
     const scene = new THREE.Scene();
 
     // 2. Camera setup
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.z = 12;
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
+    camera.position.z = 10;
 
     // 3. Renderer setup
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -32,64 +32,156 @@ export function ThreeCanvasLogin() {
     container.appendChild(renderer.domElement);
 
     // 4. Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    const pointLight1 = new THREE.PointLight(0x00afef, 2, 50);
+    const pointLight1 = new THREE.PointLight(0x00afef, 3, 50);
     pointLight1.position.set(5, 5, 5);
     scene.add(pointLight1);
 
-    const pointLight2 = new THREE.PointLight(0x0f62ac, 3, 50);
+    const pointLight2 = new THREE.PointLight(0x0f62ac, 4, 50);
     pointLight2.position.set(-5, -5, 5);
     scene.add(pointLight2);
 
-    // 5. Geometries and Objects
-    // A glowing wireframe torus knot
-    const torusKnotGeo = new THREE.TorusKnotGeometry(2.5, 0.6, 120, 16);
-    const torusKnotMat = new THREE.MeshBasicMaterial({
+    // 5. Build the 3D Ticket Group
+    const ticketGroup = new THREE.Group();
+    scene.add(ticketGroup);
+
+    // Create the 2D ticket outline shape with circular notches on left/right
+    const shape = new THREE.Shape();
+    const w = 4.2;
+    const h = 2.5;
+    const r = 0.35; // Notch radius
+
+    // Top-left to top-right
+    shape.moveTo(-w / 2, h / 2);
+    shape.lineTo(w / 2, h / 2);
+
+    // Right edge down to notch
+    shape.lineTo(w / 2, r);
+    // Right notch curving inward
+    shape.absarc(w / 2, 0, r, Math.PI / 2, 3 * Math.PI / 2, false);
+    // Right edge notch to bottom-right
+    shape.lineTo(w / 2, -h / 2);
+
+    // Bottom edge
+    shape.lineTo(-w / 2, -h / 2);
+
+    // Left edge up to notch
+    shape.lineTo(-w / 2, -r);
+    // Left notch curving inward
+    shape.absarc(-w / 2, 0, r, -Math.PI / 2, Math.PI / 2, false);
+    // Left edge notch to top-left
+    shape.lineTo(-w / 2, h / 2);
+
+    // Extrude the 2D shape to make it a 3D ticket card
+    const extrudeSettings = {
+      depth: 0.16,
+      bevelEnabled: true,
+      bevelSegments: 4,
+      steps: 1,
+      bevelSize: 0.05,
+      bevelThickness: 0.05,
+    };
+
+    const ticketGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    
+    // Glassmorphic physical material
+    const ticketMat = new THREE.MeshPhysicalMaterial({
       color: 0x00afef,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.2,
-    });
-    const torusKnot = new THREE.Mesh(torusKnotGeo, torusKnotMat);
-    scene.add(torusKnot);
-
-    // Dynamic inner core mesh
-    const innerGeo = new THREE.IcosahedronGeometry(1.6, 2);
-    const innerMat = new THREE.MeshPhongMaterial({
-      color: 0x0f62ac,
       emissive: 0x052c56,
-      wireframe: true,
+      roughness: 0.1,
+      metalness: 0.1,
       transparent: true,
-      opacity: 0.35,
-      shininess: 100,
+      opacity: 0.6,
+      transmission: 0.65, // Glass effect
+      ior: 1.5,
+      side: THREE.DoubleSide,
+      depthWrite: true,
     });
-    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-    scene.add(innerMesh);
 
-    // Particle field
-    const particleCount = 400;
+    const ticketBase = new THREE.Mesh(ticketGeo, ticketMat);
+    // Center geometry inside the mesh
+    ticketGeo.center();
+    ticketGroup.add(ticketBase);
+
+    // Add Ticket Details on top of base
+    // 5.1 Vertical dashed separator line (Stub Line)
+    const stubGroup = new THREE.Group();
+    const dashCount = 8;
+    const dashGeo = new THREE.BoxGeometry(0.04, 0.12, 0.08);
+    const dashMat = new THREE.MeshBasicMaterial({
+      color: 0x00afef,
+      transparent: true,
+      opacity: 0.8,
+    });
+    for (let i = 0; i < dashCount; i++) {
+      const dash = new THREE.Mesh(dashGeo, dashMat);
+      // Positioned at X = 1.0 (dividing stub on the right)
+      dash.position.set(0.9, -h / 2 + 0.15 + ((h - 0.3) / (dashCount - 1)) * i, 0.12);
+      stubGroup.add(dash);
+    }
+    ticketGroup.add(stubGroup);
+
+    // 5.2 Vertical barcode lines on the right stub
+    const barcodeGroup = new THREE.Group();
+    const barWidths = [0.05, 0.1, 0.03, 0.14, 0.06];
+    const barXOffsets = [1.2, 1.34, 1.44, 1.56, 1.68];
+    const barMat = new THREE.MeshBasicMaterial({
+      color: 0x0f62ac,
+      transparent: true,
+      opacity: 0.8,
+    });
+    for (let i = 0; i < barWidths.length; i++) {
+      const barGeo = new THREE.BoxGeometry(barWidths[i], 0.9, 0.08);
+      const bar = new THREE.Mesh(barGeo, barMat);
+      // Center on right stub (around X = 1.4)
+      bar.position.set(barXOffsets[i], 0, 0.12);
+      barcodeGroup.add(bar);
+    }
+    ticketGroup.add(barcodeGroup);
+
+    // 5.3 Horizontal glowing fields/text lines on the main ticket body
+    const infoGroup = new THREE.Group();
+    const infoLines = [
+      { w: 1.8, y: 0.45, color: 0x00afef },
+      { w: 1.4, y: 0.1, color: 0x0f62ac },
+      { w: 1.6, y: -0.25, color: 0x00afef },
+    ];
+    for (const line of infoLines) {
+      const lineGeo = new THREE.BoxGeometry(line.w, 0.08, 0.08);
+      const lineMat = new THREE.MeshBasicMaterial({
+        color: line.color,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const lineMesh = new THREE.Mesh(lineGeo, lineMat);
+      // Offset slightly to the left body
+      lineMesh.position.set(-0.6, line.y, 0.12);
+      infoGroup.add(lineMesh);
+    }
+    ticketGroup.add(infoGroup);
+
+    // 6. Particle Field (surrounding floating particles)
+    const particleCount = 300;
     const particleGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
 
-    const color1 = new THREE.Color(0x00afef); // light blue
-    const color2 = new THREE.Color(0x0f62ac); // dark blue
+    const color1 = new THREE.Color(0x00afef);
+    const color2 = new THREE.Color(0x0f62ac);
 
     for (let i = 0; i < particleCount * 3; i += 3) {
-      // Position particles in a spherical region
       const u = Math.random();
       const v = Math.random();
       const theta = u * 2.0 * Math.PI;
       const phi = Math.acos(2.0 * v - 1.0);
-      const r = 4 + Math.random() * 3; // radius between 4 and 7
+      const r = 3.5 + Math.random() * 2.5; // radius between 3.5 and 6
 
       positions[i] = r * Math.sin(phi) * Math.cos(theta);
       positions[i + 1] = r * Math.sin(phi) * Math.sin(theta);
       positions[i + 2] = r * Math.cos(phi);
 
-      // Interpolate colors
       const mixedColor = color1.clone().lerp(color2, Math.random());
       colors[i] = mixedColor.r;
       colors[i + 1] = mixedColor.g;
@@ -99,13 +191,12 @@ export function ThreeCanvasLogin() {
     particleGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     particleGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 
-    // Particle texture (small circles)
     const particleTexture = createCircleTexture();
     const particleMat = new THREE.PointsMaterial({
-      size: 0.12,
+      size: 0.11,
       map: particleTexture,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.65,
       vertexColors: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -114,7 +205,6 @@ export function ThreeCanvasLogin() {
     const particles = new THREE.Points(particleGeo, particleMat);
     scene.add(particles);
 
-    // Helper to generate circular particle textures programmatically
     function createCircleTexture() {
       const canvas = document.createElement("canvas");
       canvas.width = 16;
@@ -130,19 +220,18 @@ export function ThreeCanvasLogin() {
       return new THREE.CanvasTexture(canvas);
     }
 
-    // 6. Interaction
+    // 7. Interaction
     let targetX = 0;
     let targetY = 0;
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Calculate normalized mouse coordinates (-1 to 1)
-      targetX = (e.clientX - window.innerWidth / 2) * 0.0005;
-      targetY = (e.clientY - window.innerHeight / 2) * 0.0005;
+      targetX = (e.clientX - window.innerWidth / 2) * 0.0004;
+      targetY = (e.clientY - window.innerHeight / 2) * 0.0004;
     };
 
     window.addEventListener("mousemove", handleMouseMove);
 
-    // 7. Resize handler
+    // Resize handler
     const handleResize = () => {
       if (!container) return;
       const w = container.clientWidth;
@@ -162,19 +251,20 @@ export function ThreeCanvasLogin() {
       animationFrameId = requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
 
-      // Gentle continuous rotation
-      torusKnot.rotation.y = elapsedTime * 0.12;
-      torusKnot.rotation.x = elapsedTime * 0.06;
+      // Gentle continuous ticket rotation & hover floating motion
+      ticketGroup.rotation.y = elapsedTime * 0.15;
+      ticketGroup.rotation.x = elapsedTime * 0.08;
+      
+      const floatOffset = Math.sin(elapsedTime * 1.6) * 0.12;
+      ticketGroup.position.y = floatOffset;
 
-      innerMesh.rotation.y = -elapsedTime * 0.2;
-      innerMesh.rotation.z = elapsedTime * 0.1;
+      // Particles rotation
+      particles.rotation.y = elapsedTime * 0.03;
+      particles.rotation.x = -elapsedTime * 0.015;
 
-      particles.rotation.y = elapsedTime * 0.04;
-      particles.rotation.x = -elapsedTime * 0.01;
-
-      // Mouse interactive parallax movement (lerped for smoothness)
-      scene.rotation.y += (targetX - scene.rotation.y) * 0.05;
-      scene.rotation.x += (targetY - scene.rotation.x) * 0.05;
+      // Mouse interactive parallax movement (smooth lerp)
+      scene.rotation.y += (targetX - scene.rotation.y) * 0.04;
+      scene.rotation.x += (targetY - scene.rotation.x) * 0.04;
 
       renderer.render(scene, camera);
     };
@@ -191,10 +281,17 @@ export function ThreeCanvasLogin() {
       }
       
       // Dispose resources
-      torusKnotGeo.dispose();
-      torusKnotMat.dispose();
-      innerGeo.dispose();
-      innerMat.dispose();
+      ticketGeo.dispose();
+      ticketMat.dispose();
+      dashGeo.dispose();
+      dashMat.dispose();
+      for (let i = 0; i < barcodeGroup.children.length; i++) {
+        (barcodeGroup.children[i] as THREE.Mesh).geometry.dispose();
+      }
+      barMat.dispose();
+      for (let i = 0; i < infoGroup.children.length; i++) {
+        (infoGroup.children[i] as THREE.Mesh).geometry.dispose();
+      }
       particleGeo.dispose();
       particleMat.dispose();
       particleTexture.dispose();
