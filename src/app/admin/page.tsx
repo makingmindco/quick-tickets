@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner";
 import { User, Ticket, Aviso, Message } from "@/types";
 import { CustomAudioPlayer } from "@/components/custom-audio-player";
+import { TiltCard } from "@/components/tilt-card";
 
 let dbClockOffset = 0;
 
@@ -2476,71 +2477,79 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                         
                         {/* KPI 1: SLA Tempo de Resposta */}
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
-                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resposta</span>
-                          <div className="mt-3 flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
-                              {metricsData.avgResponseTime < 60 
-                                ? `${metricsData.avgResponseTime}m`
-                                : `${Math.floor(metricsData.avgResponseTime / 60)}h ${metricsData.avgResponseTime % 60}m`
-                              }
-                            </span>
+                        <TiltCard className="h-full">
+                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none h-full">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resposta</span>
+                            <div className="mt-3 flex items-baseline gap-1">
+                              <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                                {metricsData.avgResponseTime < 65 
+                                  ? `${metricsData.avgResponseTime}m`
+                                  : `${Math.floor(metricsData.avgResponseTime / 60)}h ${metricsData.avgResponseTime % 60}m`
+                                }
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde a criação até o primeiro atendimento</span>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde a criação até o primeiro atendimento</span>
-                        </div>
+                        </TiltCard>
 
                         {/* KPI 2: Tempo de Resolução */}
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
-                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resolução</span>
-                          <div className="mt-3 flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
-                              {metricsData.avgResolutionTime < 60 
-                                ? `${metricsData.avgResolutionTime}m`
-                                : `${Math.floor(metricsData.avgResolutionTime / 60)}h ${metricsData.avgResolutionTime % 60}m`
-                              }
-                            </span>
+                        <TiltCard className="h-full">
+                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none h-full">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Tempo Médio de Resolução</span>
+                            <div className="mt-3 flex items-baseline gap-1">
+                              <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                                {metricsData.avgResolutionTime < 65 
+                                  ? `${metricsData.avgResolutionTime}m`
+                                  : `${Math.floor(metricsData.avgResolutionTime / 60)}h ${metricsData.avgResolutionTime % 60}m`
+                                }
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde o início do atendimento até a conclusão</span>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Média desde o início do atendimento até a conclusão</span>
-                        </div>
+                        </TiltCard>
 
                         {/* KPI 3: Satisfação Geral */}
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
-                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Satisfação Geral</span>
-                          <div className="mt-3 flex items-center gap-2">
-                            <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
-                              {metricsData.satisfaction.avgRating > 0 ? metricsData.satisfaction.avgRating : "-"}
-                            </span>
-                            {metricsData.satisfaction.avgRating > 0 && (
-                              <div className="flex text-amber-500">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <svg
-                                    key={i}
-                                    className={`h-4.5 w-4.5 ${i < Math.round(metricsData.satisfaction.avgRating) ? "fill-current" : "text-slate-200 dark:text-zinc-800"}`}
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    fill="none"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
-                                  </svg>
-                                ))}
-                              </div>
-                            )}
+                        <TiltCard className="h-full">
+                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none h-full">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Satisfação Geral</span>
+                            <div className="mt-3 flex items-center gap-2">
+                              <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+                                {metricsData.satisfaction.avgRating > 0 ? metricsData.satisfaction.avgRating : "-"}
+                              </span>
+                              {metricsData.satisfaction.avgRating > 0 && (
+                                <div className="flex text-amber-500">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <svg
+                                      key={i}
+                                      className={`h-4.5 w-4.5 ${i < Math.round(metricsData.satisfaction.avgRating) ? "fill-current" : "text-slate-200 dark:text-zinc-800"}`}
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      fill="none"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.969 0 1.371 1.24.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118L2.49 11.1c-.783-.57-.38-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                                    </svg>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 mt-2 block">Baseado em {metricsData.satisfaction.totalRatings} avaliações enviadas</span>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Baseado em {metricsData.satisfaction.totalRatings} avaliações enviadas</span>
-                        </div>
+                        </TiltCard>
 
                         {/* KPI 4: Solicitações de Urgência */}
-                        <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none">
-                          <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Avisos de Urgência</span>
-                          <div className="mt-3 flex items-baseline gap-1">
-                            <span className="text-3xl font-black text-red-500 tracking-tight">
-                              {metricsData.urgencyStats.urgente}
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-450 dark:text-zinc-500">solicitados</span>
+                        <TiltCard className="h-full">
+                          <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-5 rounded-2xl shadow-sm flex flex-col justify-between select-none h-full">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Avisos de Urgência</span>
+                            <div className="mt-3 flex items-baseline gap-1">
+                              <span className="text-3xl font-black text-red-500 tracking-tight">
+                                {metricsData.urgencyStats.urgente}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-450 dark:text-zinc-500">solicitados</span>
+                            </div>
+                            <span className="text-[9px] font-bold text-slate-400 mt-2 block">Número de chamados que usaram "solicitar urgência"</span>
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 mt-2 block">Número de chamados que usaram "solicitar urgência"</span>
-                        </div>
+                        </TiltCard>
 
                       </div>
 

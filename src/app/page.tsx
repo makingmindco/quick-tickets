@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, Mail, User, ShieldAlert, CheckCircle2, AlertCircle, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
+import { ThreeCanvasLogin } from "@/components/three-canvas-login";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -554,13 +555,8 @@ export default function AuthPage() {
       </div>
 
       {/* Brand Visual Illustration Area */}
-      <div className="hidden lg:block lg:w-[50%] bg-[#0d1317] relative overflow-hidden select-none">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/assets/login_illustration.png"
-          alt="Central de Suporte Ilustração"
-          className="w-full h-full object-cover block illustration-img scale-110"
-        />
+      <div className="hidden lg:flex lg:w-[50%] bg-[#0d1317] relative overflow-hidden select-none items-center justify-center">
+        <ThreeCanvasLogin />
       </div>
     </div>
   );

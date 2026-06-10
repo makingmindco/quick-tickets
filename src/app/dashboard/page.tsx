@@ -32,6 +32,8 @@ import {
 import { toast } from "sonner";
 import { User, Ticket, Aviso, Message } from "@/types";
 import { CustomAudioPlayer } from "@/components/custom-audio-player";
+import { ThreeCanvasHero } from "@/components/three-canvas-hero";
+import { TiltCard } from "@/components/tilt-card";
 
 let dbClockOffset = 0;
 
@@ -1086,9 +1088,9 @@ export default function StudentDashboard() {
           {activeTab === "inicio" && (
             <div className="space-y-8 select-none">
               {/* Hero Banner Welcome Card */}
-              <div className="bg-gradient-to-r from-[#001530] via-[#052c56] to-[#0d599c] rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-lg">
+              <div className="bg-gradient-to-r from-[#001530] via-[#052c56] to-[#0d599c] rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
                 <div className="absolute top-0 right-0 h-48 w-48 rounded-full bg-white/5 blur-[80px] pointer-events-none" />
-                <div className="relative z-10 max-w-lg">
+                <div className="relative z-10 max-w-lg flex-1">
                   <h2 className="text-3xl font-black text-white">Olá, {currentUser?.nome}! 👋</h2>
                   <p className="text-sm text-blue-100/90 mt-2 font-medium leading-relaxed">
                     {isLoadingData
@@ -1106,6 +1108,10 @@ export default function StudentDashboard() {
                     <Plus className="h-4 w-4 stroke-[3]" />
                     ABRIR NOVO TICKET
                   </button>
+                </div>
+                {/* 3D Hero Element (Desktop only) */}
+                <div className="hidden md:block w-40 h-40 shrink-0 relative z-10">
+                  <ThreeCanvasHero />
                 </div>
               </div>
 
@@ -1135,73 +1141,74 @@ export default function StudentDashboard() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {activeTickets.map(ticket => (
-                        <div
-                          key={ticket.id}
-                          onClick={() => {
-                            setSelectedTicketId(ticket.id);
-                            setSelectedTicket(ticket);
-                            setChatMessages([]);
-                            fetchChatMessages(ticket.id);
-                            setActiveTab("tickets");
-                            setTicketView("chat");
-                            setShowDetails(false);
-                          }}
-                          className={`bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800/80 hover:border-[#0f62ac]/20 p-5 rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer flex flex-col justify-between ${
-                            ticket.status === "pendente"
-                              ? "border-t-4 border-t-amber-500"
-                              : "border-t-4 border-t-[#0f62ac]"
-                          }`}
-                        >
-                          <div className="flex gap-4 items-start">
-                            {/* Red Folder Icon Block */}
-                            <div className="h-11 w-11 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center text-red-500 shrink-0 mt-0.5">
-                              <FolderClosed className="h-5 w-5" />
+                        <TiltCard key={ticket.id} className="h-full">
+                          <div
+                            onClick={() => {
+                              setSelectedTicketId(ticket.id);
+                              setSelectedTicket(ticket);
+                              setChatMessages([]);
+                              fetchChatMessages(ticket.id);
+                              setActiveTab("tickets");
+                              setTicketView("chat");
+                              setShowDetails(false);
+                            }}
+                            className={`bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800/80 hover:border-[#0f62ac]/20 p-5 rounded-2xl transition-all cursor-pointer flex flex-col justify-between h-full ${
+                              ticket.status === "pendente"
+                                ? "border-t-4 border-t-amber-500"
+                                : "border-t-4 border-t-[#0f62ac]"
+                            }`}
+                          >
+                            <div className="flex gap-4 items-start">
+                              {/* Red Folder Icon Block */}
+                              <div className="h-11 w-11 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center text-red-500 shrink-0 mt-0.5">
+                                <FolderClosed className="h-5 w-5" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start gap-2">
+                                  <h4 className="text-sm font-extrabold text-slate-800 dark:text-white line-clamp-1">
+                                    {ticket.titulo || ticket.categoria}
+                                  </h4>
+                                  <span className={`text-[10px] font-bold shrink-0 uppercase tracking-wide ${
+                                    ticket.status === "pendente"
+                                      ? "text-amber-500"
+                                      : "text-[#0f62ac] dark:text-[#00afef]"
+                                  }`}>
+                                    {ticket.status === "pendente" ? "ABERTO" : "ATENDIMENTO"}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] font-bold text-slate-400 mt-0.5">
+                                  {ticket.categoria} - Chamado #{ticket.id}
+                                </p>
+                                <p className="text-xs text-slate-550 dark:text-slate-350 mt-2 line-clamp-2 leading-relaxed font-medium">
+                                  {ticket.descricao}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start gap-2">
-                                <h4 className="text-sm font-extrabold text-slate-800 dark:text-white line-clamp-1">
-                                  {ticket.titulo || ticket.categoria}
-                                </h4>
-                                <span className={`text-[10px] font-bold shrink-0 uppercase tracking-wide ${
-                                  ticket.status === "pendente"
-                                    ? "text-amber-500"
-                                    : "text-[#0f62ac] dark:text-[#00afef]"
-                                }`}>
-                                  {ticket.status === "pendente" ? "ABERTO" : "ATENDIMENTO"}
+                            <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 mt-4 flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                {currentUser?.foto_url ? (
+                                  <img src={currentUser.foto_url} alt="Avatar" className="h-6 w-6 rounded-full object-cover" />
+                                ) : (
+                                  <div className="h-6 w-6 rounded-full bg-[#0f62ac] text-white flex items-center justify-center font-bold text-[10px]">
+                                    {avatarInitials}
+                                  </div>
+                                )}
+                                <span className="text-[10px] text-slate-400 font-semibold">
+                                  Criado em {new Date(ticket.criado_em).toLocaleDateString("pt-BR")}
                                 </span>
                               </div>
-                              <p className="text-[11px] font-bold text-slate-400 mt-0.5">
-                                {ticket.categoria} - Chamado #{ticket.id}
-                              </p>
-                              <p className="text-xs text-slate-550 dark:text-slate-350 mt-2 line-clamp-2 leading-relaxed font-medium">
-                                {ticket.descricao}
-                              </p>
+                              
+                              <button
+                                onClick={(e) => handleCloseTicket(ticket.id, e)}
+                                className="border border-red-200 text-red-500 hover:bg-rose-50 dark:hover:bg-red-950/20 rounded-lg px-3.5 py-1 text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Encerrar
+                              </button>
                             </div>
                           </div>
-
-                          <div className="border-t border-slate-100 dark:border-zinc-800 pt-3 mt-4 flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              {currentUser?.foto_url ? (
-                                <img src={currentUser.foto_url} alt="Avatar" className="h-6 w-6 rounded-full object-cover" />
-                              ) : (
-                                <div className="h-6 w-6 rounded-full bg-[#0f62ac] text-white flex items-center justify-center font-bold text-[10px]">
-                                  {avatarInitials}
-                                </div>
-                              )}
-                              <span className="text-[10px] text-slate-400 font-semibold">
-                                Criado em {new Date(ticket.criado_em).toLocaleDateString("pt-BR")}
-                              </span>
-                            </div>
-                            
-                            <button
-                              onClick={(e) => handleCloseTicket(ticket.id, e)}
-                              className="border border-red-200 text-red-500 hover:bg-rose-50 dark:hover:bg-red-950/20 rounded-lg px-3.5 py-1 text-xs font-bold transition-all cursor-pointer"
-                            >
-                              Encerrar
-                            </button>
-                          </div>
-                        </div>
+                        </TiltCard>
                       ))}
                     </div>
                   )}
@@ -1224,17 +1231,18 @@ export default function StudentDashboard() {
                   ) : (
                     <div className="space-y-3.5">
                       {avisos.map(aviso => (
-                        <div
-                          key={aviso.id}
-                          className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-4.5 rounded-2xl"
-                        >
-                          <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100">{aviso.titulo}</h4>
-                          <p className="text-xs text-slate-550 dark:text-slate-400 mt-1.5 leading-relaxed">{aviso.mensagem}</p>
-                          <div className="mt-3.5 text-[9px] text-slate-400 font-bold flex justify-between items-center border-t border-slate-100 dark:border-zinc-800 pt-2.5">
-                            <span>Por: {aviso.autor || "Coordenação"}</span>
-                            <span>{new Date(aviso.data_criacao).toLocaleDateString("pt-BR")}</span>
+                        <TiltCard key={aviso.id}>
+                          <div
+                            className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 p-4.5 rounded-2xl h-full"
+                          >
+                            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100">{aviso.titulo}</h4>
+                            <p className="text-xs text-slate-550 dark:text-slate-400 mt-1.5 leading-relaxed">{aviso.mensagem}</p>
+                            <div className="mt-3.5 text-[9px] text-slate-400 font-bold flex justify-between items-center border-t border-slate-100 dark:border-zinc-800 pt-2.5">
+                              <span>Por: {aviso.autor || "Coordenação"}</span>
+                              <span>{new Date(aviso.data_criacao).toLocaleDateString("pt-BR")}</span>
+                            </div>
                           </div>
-                        </div>
+                        </TiltCard>
                       ))}
                     </div>
                   )}
